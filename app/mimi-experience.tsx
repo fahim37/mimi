@@ -1,31 +1,17 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-
-type Look = { src: string; alt: string; label: string };
+import BagButton from "./shop/bag-button";
+import ProductCard from "./shop/product-card";
+import { formatPrice, products } from "./shop/products";
 
 const chapters = [
   { number: "01", name: "Rouge Rhythm", note: "Lines that move before you do.", image: "/media/rouge-studio.webp", detail: "/media/rouge-detail.webp", alt: "Model wearing Mimi's red striped two-piece look", tone: "rouge" },
   { number: "02", name: "Glamour Drape", note: "Soft architecture in a deep plum tone.", image: "/media/plum-front.webp", detail: "/media/plum-back.webp", alt: "Model wearing Mimi's plum draped gown", tone: "plum" },
   { number: "03", name: "Mineral Ease", note: "Airy layers, grounded confidence.", image: "/media/blue-model.webp", detail: "/media/blue-product.webp", alt: "Model wearing Mimi's mineral blue layered set", tone: "mineral" },
   { number: "04", name: "Olive Hour", note: "Quiet colour with a decisive silhouette.", image: "/media/olive-full.webp", detail: "/media/olive-portrait.webp", alt: "Model wearing Mimi's olive relaxed set", tone: "olive" },
-];
-
-const lookbook: Look[] = [
-  { src: "/media/plum-pose.webp", alt: "Plum gown editorial portrait", label: "Glamour / 01" },
-  { src: "/media/rouge-rooftop.webp", alt: "Red striped set on a rooftop", label: "Rouge / 02" },
-  { src: "/media/olive-portrait.webp", alt: "Olive top portrait", label: "Olive / 03" },
-  { src: "/media/ruby-portrait.webp", alt: "Ruby draped dress portrait", label: "Ruby / 04" },
-  { src: "/media/noir-editorial.webp", alt: "Black and ivory editorial outfit", label: "Noir / 05" },
-];
-
-const editCards = [
-  { title: "The Rouge Set", type: "Two-piece", image: "/media/rouge-detail.webp", alt: "/media/rouge-studio.webp" },
-  { title: "The Glamour Gown", type: "Draped dress", image: "/media/plum-wide.webp", alt: "/media/plum-pose.webp" },
-  { title: "The Mineral Set", type: "Three-piece", image: "/media/blue-product.webp", alt: "/media/blue-model.webp" },
-  { title: "The Olive Set", type: "Two-piece", image: "/media/olive-product.webp", alt: "/media/olive-full.webp" },
-  { title: "The Noir Layer", type: "Evening separates", image: "/media/noir-product.webp", alt: "/media/noir-editorial.webp" },
 ];
 
 function Arrow({ direction = "right" }: { direction?: "right" | "left" | "down" }) {
@@ -60,7 +46,6 @@ export default function MimiExperience() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [muted, setMuted] = useState(true);
   const [playing, setPlaying] = useState(true);
-  const [selectedLook, setSelectedLook] = useState<Look | null>(null);
   const [loaderVisible, setLoaderVisible] = useState(true);
   const [loaderLeaving, setLoaderLeaving] = useState(false);
   const [loaderProgress, setLoaderProgress] = useState(0);
@@ -227,16 +212,23 @@ export default function MimiExperience() {
     const label = ring?.querySelector<HTMLElement>("span");
     if (!dot || !ring || !label) return;
     document.documentElement.classList.add("has-cursor");
-    let targetX = -100, targetY = -100, ringX = -100, ringY = -100, frame = 0;
-    const animate = () => {
-      ringX += (targetX - ringX) * 0.16; ringY += (targetY - ringY) * 0.16;
+    // Exponential smoothing: higher follow = snappier ring, still frame-rate independent.
+    const follow = 45;
+    let targetX = -100, targetY = -100, ringX = -100, ringY = -100, frame = 0, last = performance.now();
+    const animate = (now: number) => {
+      const delta = Math.min((now - last) / 1000, 0.05); last = now;
+      const ease = 1 - Math.exp(-follow * delta);
+      ringX += (targetX - ringX) * ease; ringY += (targetY - ringY) * ease;
       dot.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
       ring.style.transform = `translate3d(${ringX}px, ${ringY}px, 0)`;
       frame = requestAnimationFrame(animate);
     };
-    const move = (event: PointerEvent) => {
+    const track = (event: PointerEvent) => {
       targetX = event.clientX; targetY = event.clientY;
       dot.classList.add("is-visible"); ring.classList.add("is-visible");
+    };
+    const move = (event: PointerEvent) => {
+      track(event);
       const interactive = (event.target as Element | null)?.closest<HTMLElement>("a, button, [data-cursor]");
       const text = interactive?.dataset.cursor ?? "";
       label.textContent = text;
@@ -245,23 +237,27 @@ export default function MimiExperience() {
     const leave = () => { dot.classList.remove("is-visible"); ring.classList.remove("is-visible"); };
     const down = () => ring.classList.add("is-down");
     const up = () => ring.classList.remove("is-down");
+    // pointerrawupdate fires ahead of pointermove where supported, shaving a frame off the lag.
+    const raw = "onpointerrawupdate" in window;
     frame = requestAnimationFrame(animate);
+    if (raw) window.addEventListener("pointerrawupdate", track as EventListener, { passive: true });
     window.addEventListener("pointermove", move, { passive: true });
     document.documentElement.addEventListener("mouseleave", leave);
     window.addEventListener("pointerdown", down); window.addEventListener("pointerup", up);
     return () => {
       document.documentElement.classList.remove("has-cursor"); cancelAnimationFrame(frame);
+      if (raw) window.removeEventListener("pointerrawupdate", track as EventListener);
       window.removeEventListener("pointermove", move); document.documentElement.removeEventListener("mouseleave", leave);
       window.removeEventListener("pointerdown", down); window.removeEventListener("pointerup", up);
     };
   }, []);
 
   useEffect(() => {
-    document.body.classList.toggle("menu-open", menuOpen || Boolean(selectedLook));
-    const key = (event: KeyboardEvent) => { if (event.key === "Escape") { setMenuOpen(false); setSelectedLook(null); } };
+    document.body.classList.toggle("menu-open", menuOpen);
+    const key = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
     window.addEventListener("keydown", key);
     return () => { document.body.classList.remove("menu-open"); window.removeEventListener("keydown", key); };
-  }, [menuOpen, selectedLook]);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!window.matchMedia("(pointer: fine)").matches) return;
@@ -302,9 +298,12 @@ export default function MimiExperience() {
           <nav className="desktop-nav" aria-label="Main navigation">
             <a href="#collection">Collection</a><a href="#campaign">Campaign</a><a href="#story">Our story</a>
           </nav>
-          <button className="menu-toggle" type="button" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-controls="mobile-menu" data-cursor={menuOpen ? "Close" : "Menu"}>
-            <span>{menuOpen ? "Close" : "Menu"}</span><i /><i />
-          </button>
+          <div className="site-header__actions">
+            <BagButton />
+            <button className="menu-toggle" type="button" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-controls="mobile-menu" data-cursor={menuOpen ? "Close" : "Menu"}>
+              <span>{menuOpen ? "Close" : "Menu"}</span><i /><i />
+            </button>
+          </div>
         </div>
         <span className="page-progress" />
       </header>
@@ -396,15 +395,11 @@ export default function MimiExperience() {
         </section>
 
         <section id="lookbook" className="lookbook section-pad" aria-labelledby="lookbook-title">
-          <div className="lookbook__heading reveal"><span className="kicker">Selected frames · 2026</span><h2 id="lookbook-title">The <em>lookbook</em></h2><p>Five portraits. Five different ways to arrive.</p></div>
+          <div className="lookbook__heading reveal"><span className="kicker">Shop the collection · 2026</span><h2 id="lookbook-title">The <em>lookbook</em></h2><p>Seven pieces. Seven different ways to arrive — each one ready to take home.</p></div>
           <div className="lookbook__grid">
-            {lookbook.map((look, index) => (
-              <button className={`lookbook-card lookbook-card--${index + 1} reveal`} key={look.src} type="button" onClick={() => setSelectedLook(look)} data-cursor="Open" aria-label={`Open ${look.label}`}>
-                <span className="lookbook-card__image parallax-layer" data-parallax={index % 2 === 0 ? "-42" : "36"} data-scroll-zoom><Image src={look.src} alt={look.alt} fill sizes="(max-width: 767px) 88vw, 44vw" /></span>
-                <span className="lookbook-card__meta"><b>{look.label}</b><i>View image ↗</i></span>
-              </button>
+            {products.map((product, index) => (
+              <ProductCard className="lookbook-card reveal" product={product} index={index} key={product.slug} />
             ))}
-            <div className="lookbook__orbit parallax-layer" data-parallax="24" aria-hidden="true"><span>M</span><small>ARCHIVE · 2026</small></div>
           </div>
         </section>
 
@@ -429,11 +424,11 @@ export default function MimiExperience() {
             <div className="shop-edit__arrows"><button type="button" onClick={() => moveEdit(-1)} aria-label="Previous looks"><Arrow direction="left" /></button><button type="button" onClick={() => moveEdit(1)} aria-label="Next looks"><Arrow /></button></div>
           </div>
           <div className="edit-track" ref={editTrackRef}>
-            {editCards.map((card, index) => (
-              <a className="edit-card" href="https://www.instagram.com/thebrand_mimi/" target="_blank" rel="noreferrer" key={card.title} data-cursor="Enquire">
-                <span className="edit-card__visual"><Image className="edit-card__image edit-card__image--base" src={card.image} alt={card.title} fill sizes="(max-width: 767px) 78vw, 31vw" /><Image className="edit-card__image edit-card__image--alt" src={card.alt} alt="" fill sizes="(max-width: 767px) 78vw, 31vw" /><small>0{index + 1}</small></span>
-                <span className="edit-card__caption"><b>{card.title}</b><i>{card.type}</i></span>
-              </a>
+            {products.map((product, index) => (
+              <Link className="edit-card" href={`/product/${product.slug}`} key={product.slug} data-cursor="View">
+                <span className="edit-card__visual"><Image className="edit-card__image edit-card__image--base" src={product.images[0].src} alt={product.name} fill sizes="(max-width: 767px) 78vw, 31vw" /><Image className="edit-card__image edit-card__image--alt" src={(product.images[1] ?? product.images[0]).src} alt="" fill sizes="(max-width: 767px) 78vw, 31vw" /><small>0{index + 1}</small></span>
+                <span className="edit-card__caption"><b>{product.name}</b><i>{formatPrice(product.price)}</i></span>
+              </Link>
             ))}
             <div className="edit-track__spacer" aria-hidden="true" />
           </div>
@@ -451,14 +446,6 @@ export default function MimiExperience() {
         <div className="footer__word" aria-hidden="true">MIMI</div>
         <div className="footer__bottom"><span>© {new Date().getFullYear()} Mimi</span><span>Curated style for the conscious wardrobe.</span><a href="#top">Back to top ↑</a></div>
       </footer>
-
-      {selectedLook && (
-        <div className="lightbox" role="dialog" aria-modal="true" aria-label={selectedLook.label} onClick={() => setSelectedLook(null)}>
-          <button className="lightbox__close" type="button" onClick={() => setSelectedLook(null)} aria-label="Close image">Close</button>
-          <div className="lightbox__image" onClick={(event) => event.stopPropagation()}><Image src={selectedLook.src} alt={selectedLook.alt} fill sizes="95vw" /></div>
-          <span className="lightbox__label">{selectedLook.label}</span>
-        </div>
-      )}
     </div>
   );
 }
