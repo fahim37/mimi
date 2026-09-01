@@ -82,6 +82,7 @@ export default function MimiExperience() {
       if (raw < 1) frame = requestAnimationFrame(tick);
       else {
         window.sessionStorage.setItem("mimi-intro-seen", "1");
+        document.documentElement.classList.add("intro-complete");
         setLoaderLeaving(true);
         leaveTimer = window.setTimeout(() => setLoaderVisible(false), reducedMotion ? 20 : 650);
       }
@@ -130,14 +131,19 @@ export default function MimiExperience() {
       if (hero) {
         const rect = hero.getBoundingClientRect();
         const progress = clamp(-rect.top / Math.max(1, hero.offsetHeight - viewport));
-        const exit = smoothstep(0.08, 0.78, progress);
+        const expansion = smoothstep(0, 0.72, progress);
+        const exit = smoothstep(0.42, 0.94, progress);
         hero.style.setProperty("--hero-p", `${progress}`);
-        hero.style.setProperty("--hero-scale", `${1 + progress * (mobile ? 0.055 : 0.09)}`);
-        hero.style.setProperty("--hero-copy-y", `${progress * (mobile ? -48 : -118)}px`);
-        hero.style.setProperty("--hero-copy-opacity", `${1 - exit * 0.88}`);
-        hero.style.setProperty("--hero-clip-x", `${progress * (mobile ? 3.5 : 6)}vw`);
-        hero.style.setProperty("--hero-clip-y", `${progress * (mobile ? 1.2 : 3.5)}vh`);
-        hero.style.setProperty("--hero-radius", `${progress * (mobile ? 18 : 36)}px`);
+        hero.style.setProperty("--hero-scale", `${(mobile ? 1.08 : 1.12) - expansion * (mobile ? 0.08 : 0.12)}`);
+        hero.style.setProperty("--hero-copy-y", `${progress * (mobile ? -54 : -92)}px`);
+        hero.style.setProperty("--hero-copy-opacity", `${1 - exit * 0.8}`);
+        hero.style.setProperty("--hero-clip-left", `${(1 - expansion) * (mobile ? 3.5 : 34)}vw`);
+        hero.style.setProperty("--hero-clip-right", `${(1 - expansion) * (mobile ? 3.5 : 4)}vw`);
+        hero.style.setProperty("--hero-clip-y", `${(1 - expansion) * (mobile ? 7 : 9)}vh`);
+        hero.style.setProperty("--hero-radius", `${(1 - expansion) * (mobile ? 22 : 34)}px`);
+        hero.style.setProperty("--hero-line-one-x", `${progress * (mobile ? -12 : -70)}px`);
+        hero.style.setProperty("--hero-line-two-x", `${progress * (mobile ? 15 : 88)}px`);
+        hero.style.setProperty("--hero-frame-opacity", `${1 - smoothstep(0.05, 0.46, progress)}`);
       }
       const film = filmRef.current;
       if (film) {
@@ -316,21 +322,28 @@ export default function MimiExperience() {
       <main>
         <section className="hero" ref={heroRef} aria-labelledby="hero-title">
           <div className="hero__stage">
+            <div className="hero__ghost" aria-hidden="true">MIMI</div>
             <div className="hero__media">
               <video ref={runwayRef} autoPlay muted loop playsInline preload="metadata" poster="/media/runway-poster.jpg" aria-label="Mimi runway presentation">
                 <source src="/media/runway.mp4" type="video/mp4" />
               </video>
               <div className="hero__scrim" />
+              <div className="hero__film-stamp" aria-hidden="true"><span>Runway film</span><b>00:28</b></div>
             </div>
             <div className="hero__copy">
               <p className="hero__eyebrow"><span /> The new collection · 2026</p>
-              <h1 id="hero-title">A study in<br /><em>presence.</em></h1>
+              <h1 id="hero-title">
+                <span className="hero__line hero__line--one"><i>A study</i></span>
+                <span className="hero__line hero__line--two"><i>in <em>presence.</em></i></span>
+              </h1>
               <div className="hero__lower">
-                <p>Curated style for<br />the conscious wardrobe.</p>
+                <p><small>Designed to be felt</small>Curated style for<br />the conscious wardrobe.</p>
                 <a className="circle-link" href="#collection" data-cursor="Explore" aria-label="Explore the collection"><Arrow direction="down" /></a>
               </div>
             </div>
-            <div className="hero__meta"><span>Fashion Runway · BUFT</span><span>Dhaka, Bangladesh</span></div>
+            <div className="hero__frame-index" aria-hidden="true"><strong>01</strong><span>OF 04<br />THE MIMI EDIT</span></div>
+            <div className="hero__side-note" aria-hidden="true"><span>Scroll to expand the film</span><i /></div>
+            <div className="hero__meta"><span>Fashion Runway · BUFT</span><span>Dhaka, Bangladesh</span><span>MMXXVI</span></div>
             <div className="video-controls">
               <button type="button" onClick={toggleVideo} aria-label={playing ? "Pause runway video" : "Play runway video"}>{playing ? "Pause" : "Play"}</button>
               <button type="button" onClick={toggleSound} aria-label={muted ? "Turn sound on" : "Mute video"}><SoundIcon muted={muted} /></button>

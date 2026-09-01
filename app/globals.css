@@ -459,15 +459,19 @@ video {
 /* Hero */
 
 .hero {
-  --hero-scale: 1;
+  --hero-scale: 1.12;
   --hero-copy-y: 0px;
   --hero-copy-opacity: 1;
-  --hero-clip-x: 0vw;
-  --hero-clip-y: 0vh;
-  --hero-radius: 0px;
+  --hero-clip-left: 34vw;
+  --hero-clip-right: 4vw;
+  --hero-clip-y: 9vh;
+  --hero-radius: 34px;
+  --hero-line-one-x: 0px;
+  --hero-line-two-x: 0px;
+  --hero-frame-opacity: 1;
   position: relative;
-  height: 220svh;
-  background: #080807;
+  height: 215svh;
+  background: #0c0a09;
   color: white;
 }
 
@@ -477,14 +481,30 @@ video {
   height: 100svh;
   min-height: 620px;
   overflow: hidden;
+  isolation: isolate;
+  background: radial-gradient(circle at 82% 24%, #261519 0%, #0c0a09 42%, #080706 100%);
+}
+
+.hero__ghost {
+  position: absolute;
+  z-index: 0;
+  right: -0.03em;
+  bottom: -0.12em;
+  color: rgb(255 255 255 / 3.8%);
+  font-family: var(--serif);
+  font-size: clamp(240px, 34vw, 540px);
+  letter-spacing: -0.11em;
+  line-height: 0.7;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .hero__media {
   position: absolute;
-  z-index: 0;
+  z-index: 1;
   inset: 0;
   overflow: hidden;
-  clip-path: inset(var(--hero-clip-y) var(--hero-clip-x) round var(--hero-radius));
+  clip-path: inset(var(--hero-clip-y) var(--hero-clip-right) var(--hero-clip-y) var(--hero-clip-left) round var(--hero-radius));
   transform: scale(var(--hero-scale));
   transform-origin: center;
   will-change: clip-path, transform;
@@ -494,21 +514,47 @@ video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 48%;
+  object-position: 57% 48%;
 }
 
 .hero__scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgb(8 7 7 / 72%) 0%, rgb(8 7 7 / 18%) 52%, rgb(8 7 7 / 40%) 100%), linear-gradient(0deg, rgb(0 0 0 / 42%), transparent 48%);
+  background: linear-gradient(90deg, rgb(8 7 7 / 48%) 0%, rgb(8 7 7 / 5%) 58%, rgb(8 7 7 / 28%) 100%), linear-gradient(0deg, rgb(0 0 0 / 42%), transparent 48%);
+}
+
+.hero__film-stamp {
+  position: absolute;
+  top: 12vh;
+  right: 7vw;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: var(--hero-frame-opacity);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  transition: opacity 120ms linear;
+}
+
+.hero__film-stamp b {
+  display: grid;
+  width: 43px;
+  height: 43px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 50%;
+  font-size: 7px;
+  font-weight: 600;
 }
 
 .hero__copy {
   position: absolute;
-  z-index: 3;
-  top: 23%;
+  z-index: 4;
+  top: 20%;
   left: clamp(24px, 4.6vw, 72px);
-  width: min(1040px, 82vw);
+  width: min(1180px, 88vw);
   opacity: var(--hero-copy-opacity);
   transform: translate3d(0, var(--hero-copy-y), 0);
   will-change: transform, opacity;
@@ -532,26 +578,46 @@ video {
 }
 
 .hero h1 {
-  max-width: 1120px;
+  max-width: 1220px;
   margin: 0;
   font-family: var(--serif);
-  font-size: clamp(76px, 11.5vw, 176px);
+  font-size: clamp(88px, 11.6vw, 178px);
   font-weight: 400;
-  letter-spacing: -0.066em;
-  line-height: 0.78;
+  letter-spacing: -0.072em;
+  line-height: 0.76;
+}
+
+.hero__line {
+  display: block;
+  width: fit-content;
+  overflow: hidden;
+  will-change: translate;
+}
+
+.hero__line > i {
+  display: block;
+  font-style: normal;
+}
+
+.hero__line--one {
+  translate: var(--hero-line-one-x) 0;
+}
+
+.hero__line--two {
+  margin-left: 0.36em;
+  translate: var(--hero-line-two-x) 0;
 }
 
 .hero h1 em {
-  padding-left: 0.44em;
   font-weight: 400;
 }
 
 .hero__lower {
   display: flex;
-  width: min(640px, 66vw);
+  width: min(650px, 60vw);
   align-items: center;
   justify-content: space-between;
-  margin: 52px 0 0 15.5vw;
+  margin: 45px 0 0 9vw;
 }
 
 .hero__lower p {
@@ -559,6 +625,107 @@ video {
   font-size: clamp(13px, 1.15vw, 17px);
   font-weight: 420;
   line-height: 1.45;
+}
+
+.hero__lower p small {
+  display: block;
+  margin-bottom: 9px;
+  color: rgb(255 255 255 / 57%);
+  font-size: 7px;
+  font-weight: 650;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.hero__frame-index {
+  position: absolute;
+  z-index: 4;
+  top: 13vh;
+  left: 4.7vw;
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  opacity: var(--hero-frame-opacity);
+  transition: opacity 120ms linear;
+}
+
+.hero__frame-index strong {
+  font-family: var(--serif);
+  font-size: 48px;
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  line-height: 0.7;
+}
+
+.hero__frame-index span {
+  font-size: 6px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  line-height: 1.45;
+}
+
+.hero__side-note {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  opacity: var(--hero-frame-opacity);
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+}
+
+.hero__side-note span {
+  font-size: 6px;
+  font-weight: 650;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+}
+
+.hero__side-note i {
+  width: 1px;
+  height: 58px;
+  overflow: hidden;
+  background: rgb(255 255 255 / 28%);
+}
+
+.hero__side-note i::after {
+  display: block;
+  width: 100%;
+  height: 38%;
+  background: white;
+  content: "";
+  animation: hero-scroll-line 1.8s ease-in-out infinite;
+}
+
+@keyframes hero-scroll-line {
+  0% { transform: translateY(-110%); }
+  55%, 100% { transform: translateY(280%); }
+}
+
+@keyframes hero-line-in {
+  from { transform: translateY(112%) rotate(2deg); }
+  to { transform: translateY(0) rotate(0); }
+}
+
+@keyframes hero-fade-in {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.intro-complete .hero__line--one > i {
+  animation: hero-line-in 1s cubic-bezier(0.16, 1, 0.3, 1) 80ms both;
+}
+
+.intro-complete .hero__line--two > i {
+  animation: hero-line-in 1.15s cubic-bezier(0.16, 1, 0.3, 1) 170ms both;
+}
+
+.intro-complete .hero__eyebrow,
+.intro-complete .hero__lower {
+  animation: hero-fade-in 850ms ease 430ms both;
 }
 
 .circle-link {
@@ -580,7 +747,7 @@ video {
 
 .hero__meta {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   bottom: 28px;
   left: clamp(24px, 4.6vw, 72px);
   display: flex;
@@ -591,9 +758,13 @@ video {
   text-transform: uppercase;
 }
 
+.hero__meta span:last-child {
+  opacity: 0.55;
+}
+
 .video-controls {
   position: absolute;
-  z-index: 3;
+  z-index: 5;
   right: clamp(24px, 3.2vw, 50px);
   bottom: 20px;
   display: flex;
@@ -1614,7 +1785,7 @@ video {
   }
 
   .hero {
-    height: 190svh;
+    height: 195svh;
   }
 
   .hero__stage {
@@ -1622,17 +1793,28 @@ video {
   }
 
   .hero__media video {
-    object-position: 56% center;
+    object-position: 58% center;
   }
 
   .hero__scrim {
-    background: linear-gradient(90deg, rgb(8 7 7 / 68%), rgb(8 7 7 / 12%) 80%), linear-gradient(0deg, rgb(0 0 0 / 55%), transparent 58%);
+    background: linear-gradient(90deg, rgb(8 7 7 / 72%), rgb(8 7 7 / 8%) 88%), linear-gradient(0deg, rgb(0 0 0 / 62%), transparent 60%);
+  }
+
+  .hero__ghost {
+    right: -0.08em;
+    bottom: 0.04em;
+    font-size: 64vw;
+  }
+
+  .hero__film-stamp,
+  .hero__side-note {
+    display: none;
   }
 
   .hero__copy {
-    top: 24%;
-    left: 20px;
-    width: calc(100% - 40px);
+    top: 23%;
+    left: 18px;
+    width: calc(100% - 36px);
   }
 
   .hero__eyebrow {
@@ -1641,15 +1823,37 @@ video {
   }
 
   .hero h1 {
-    font-size: clamp(70px, 18.5vw, 118px);
-    line-height: 0.79;
+    font-size: clamp(62px, 17vw, 105px);
+    line-height: 0.77;
   }
 
-  .hero h1 em { padding-left: 0.16em; }
+  .hero__line--two { margin-left: 0.08em; }
 
   .hero__lower {
     width: 100%;
-    margin: 38px 0 0;
+    margin: 42px 0 0;
+  }
+
+  .hero__lower p {
+    font-size: 12px;
+  }
+
+  .hero__lower p small {
+    margin-bottom: 7px;
+    font-size: 6px;
+  }
+
+  .hero__frame-index {
+    top: 96px;
+    left: 19px;
+  }
+
+  .hero__frame-index strong {
+    font-size: 35px;
+  }
+
+  .hero__frame-index span {
+    font-size: 5px;
   }
 
   .circle-link {
@@ -1666,6 +1870,7 @@ video {
   }
 
   .hero__meta span:last-child { display: none; }
+  .hero__meta span:nth-child(2) { display: none; }
 
   .video-controls {
     right: 18px;
@@ -1982,7 +2187,7 @@ video {
 }
 
 @media (max-width: 390px) {
-  .hero h1 { font-size: 18vw; }
+  .hero h1 { font-size: 16.8vw; }
   .hero__lower p { font-size: 11px; }
   .manifesto__composition h2 { font-size: 19vw; }
   .chapter-card__copy h3 { font-size: 13.5vw; }
