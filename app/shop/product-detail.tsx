@@ -8,8 +8,10 @@ import ShopHeader from "./shop-header";
 import ShopFooter from "./shop-footer";
 import ProductCard from "./product-card";
 import ImageViewer from "./image-viewer";
+import PdpTopBar from "./pdp-top-bar";
+import { BagIcon, ShopIcon } from "./nav-icons";
 import { formatPrice, type Product } from "./products";
-import { useAddToBag } from "./use-bag";
+import { useAddToBag, useBag } from "./use-bag";
 import { useBagUI } from "./providers";
 import { useReveal } from "./use-reveal";
 
@@ -43,6 +45,7 @@ export default function ProductDetail({ product, related }: { product: Product; 
   const router = useRouter();
   const { openBag } = useBagUI();
   const addToBag = useAddToBag();
+  const { count: bagCount } = useBag();
   useReveal(product.slug);
 
   const [color, setColor] = useState(product.colors[0].name);
@@ -51,12 +54,10 @@ export default function ProductDetail({ product, related }: { product: Product; 
   const [active, setActive] = useState(0);
   const [sizeError, setSizeError] = useState(false);
   const [added, setAdded] = useState(false);
-  const [barVisible, setBarVisible] = useState(false);
   const [openPanel, setOpenPanel] = useState<string | null>("details");
   const [viewerOpen, setViewerOpen] = useState(false);
 
   const sizesRef = useRef<HTMLDivElement>(null);
-  const actionsRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -81,18 +82,6 @@ export default function ProductDetail({ product, related }: { product: Product; 
       behavior: "smooth",
     });
   }, [active]);
-
-  // The mobile buy bar takes over once the inline actions leave the viewport.
-  useEffect(() => {
-    const anchor = actionsRef.current;
-    if (!anchor) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setBarVisible(!entry.isIntersecting && entry.boundingClientRect.top < 0),
-      { threshold: 0 },
-    );
-    observer.observe(anchor);
-    return () => observer.disconnect();
-  }, [product.slug]);
 
   useEffect(() => {
     if (!added) return;
@@ -229,6 +218,7 @@ export default function ProductDetail({ product, related }: { product: Product; 
   return (
     <div className={`pdp pdp--${product.tone}`}>
       <ShopHeader />
+      <PdpTopBar title={product.name} />
 
       <main className="pdp__main">
         <nav className="pdp__crumbs" aria-label="Breadcrumb">
@@ -424,7 +414,7 @@ export default function ProductDetail({ product, related }: { product: Product; 
                 </p>
               </div>
 
-              <div className="pdp__actions" ref={actionsRef}>
+              <div className="pdp__actions">
                 <div className="pdp__qty">
                   <button
                     type="button"
@@ -526,29 +516,51 @@ export default function ProductDetail({ product, related }: { product: Product; 
 
       <ShopFooter />
 
-      <div className={`pdp-bar${barVisible ? " is-visible" : ""}`} aria-hidden={!barVisible}>
-        <div className="pdp-bar__info">
-          <span className="pdp-bar__media">
-            <Image src={product.images[0].src} alt="" fill sizes="52px" />
+      <div className="pdp-bar">
+        <Link className="pdp-bar__tab" href="/#lookbook" aria-label="Back to the lookbook">
+          <span className="pdp-bar__icon">
+            <ShopIcon />
           </span>
-          <span className="pdp-bar__text">
-            <b>{product.name}</b>
-            <i>
-              {formatPrice(product.price)}
-              {size ? ` · ${size}` : ""}
-            </i>
-          </span>
-        </div>
+          <span>Shop</span>
+        </Link>
+
         <button
-          className="btn btn--fill pdp-bar__add"
+          className="pdp-bar__tab"
           type="button"
-          onClick={() => submit(false)}
-          disabled={soldOut || addToBag.isPending}
-          tabIndex={barVisible ? 0 : -1}
+          onClick={openBag}
+          aria-label={bagCount > 0 ? `Open bag, ${bagCount} item${bagCount === 1 ? "" : "s"}` : "Open bag"}
         >
-          <span>{soldOut ? "Sold out" : addToBag.isPending ? "Adding" : "Add to bag"}</span>
-          {addToBag.isPending && <i className="btn__spinner" aria-hidden="true" />}
+          <span className="pdp-bar__icon">
+            <BagIcon count={bagCount} />
+          </span>
+          <span>Bag</span>
         </button>
+
+        {soldOut ? (
+          <button className="btn btn--ghost pdp-bar__cta" type="button" disabled>
+            <span>Sold out</span>
+          </button>
+        ) : (
+          <>
+            <button
+              className={`btn btn--ghost pdp-bar__cta${added ? " is-added" : ""}`}
+              type="button"
+              onClick={() => submit(false)}
+              disabled={addToBag.isPending}
+            >
+              <span>{addToBag.isPending ? "Adding" : added ? "Added" : "Add to bag"}</span>
+              {addToBag.isPending && <i className="btn__spinner" aria-hidden="true" />}
+            </button>
+            <button
+              className="btn btn--fill pdp-bar__cta"
+              type="button"
+              onClick={() => submit(true)}
+              disabled={addToBag.isPending}
+            >
+              <span>Buy now</span>
+            </button>
+          </>
+        )}
       </div>
 
       {viewerOpen && (

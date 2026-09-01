@@ -2294,13 +2294,47 @@ body.bag-open {
 
 .bag-button {
   display: flex;
-  gap: 8px;
+  gap: 9px;
   align-items: center;
   color: inherit;
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.13em;
   text-transform: uppercase;
+}
+
+.bag-button__icon {
+  position: relative;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bag-button__icon svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+
+.bag-button:hover .bag-button__icon {
+  transform: translateY(-1.5px);
+}
+
+.bag-button.is-bumping .bag-button__icon {
+  animation: bag-tilt 560ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes bag-tilt {
+  0% { transform: translateY(0) rotate(0deg); }
+  30% { transform: translateY(-3px) rotate(-7deg); }
+  62% { transform: translateY(0) rotate(4deg); }
+  100% { transform: translateY(0) rotate(0deg); }
 }
 
 .bag-button__label {
@@ -2326,29 +2360,32 @@ body.bag-open {
 }
 
 .bag-button__count {
+  position: absolute;
+  top: 9.5px;
+  right: 0;
+  left: 0;
   display: grid;
-  width: 21px;
-  height: 21px;
+  height: 12px;
   place-items: center;
-  border: 1px solid currentcolor;
-  border-radius: 50%;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
-  transition: background-color 260ms ease, color 260ms ease;
+  letter-spacing: 0;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .bag-button__count[data-empty] {
   opacity: 0.5;
 }
 
-.bag-button__count.is-bumping {
+.bag-button.is-bumping .bag-button__count {
   animation: bag-bump 560ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes bag-bump {
   0% { scale: 1; }
-  35% { scale: 1.42; }
+  35% { scale: 1.3; }
   60% { scale: 0.94; }
   100% { scale: 1; }
 }
@@ -3881,7 +3918,7 @@ body.bag-open {
   grid-template-columns: repeat(3, 1fr);
 }
 
-/* Mobile buy bar */
+/* Mobile product action bar */
 
 .pdp-bar {
   position: fixed;
@@ -3890,65 +3927,86 @@ body.bag-open {
   bottom: 0;
   left: 0;
   display: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  align-items: stretch;
+  gap: 8px;
+  padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
   background: rgb(239 237 229 / 96%);
+  box-shadow: 0 -12px 32px rgb(31 24 18 / 10%);
   backdrop-filter: blur(14px);
-  transform: translateY(112%);
-  transition: transform 560ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.pdp-bar.is-visible {
-  transform: translateY(0);
-}
-
-.pdp-bar__info {
-  display: flex;
-  min-width: 0;
-  gap: 11px;
-  align-items: center;
-}
-
-.pdp-bar__media {
-  position: relative;
-  width: 44px;
-  height: 54px;
-  flex: 0 0 44px;
-  overflow: hidden;
-  background: #d5cfc2;
-}
-
-.pdp-bar__media img {
-  object-fit: cover;
-}
-
-.pdp-bar__text {
+.pdp-bar__tab {
   display: grid;
-  min-width: 0;
-  gap: 3px;
+  width: 48px;
+  flex: 0 0 48px;
+  align-content: center;
+  gap: 4px;
+  justify-items: center;
+  color: rgb(18 17 15 / 55%);
+  transition: color 220ms ease, transform 150ms ease;
 }
 
-.pdp-bar__text b {
-  overflow: hidden;
-  font-size: 12px;
-  font-weight: 550;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.pdp-bar__tab:active {
+  transform: scale(0.9);
 }
 
-.pdp-bar__text i {
-  font-size: 10px;
-  font-style: normal;
+.pdp-bar__tab:hover {
+  color: var(--ink);
+}
+
+.pdp-bar__icon {
+  position: relative;
+  display: block;
+}
+
+.pdp-bar__tab svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.pdp-bar__tab > span:last-child {
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* The bag count is set inside the glyph, so it inherits the icon's colour. */
+.pdp-bar__tab svg text,
+.pdp-topbar__chip svg text {
+  fill: currentcolor;
+  stroke: none;
+  font-family: var(--sans);
+  font-size: 8px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  opacity: 0.6;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: count-pop 420ms cubic-bezier(0.34, 1.12, 0.5, 1);
 }
 
-.pdp-bar__add {
-  flex: 0 0 auto;
-  padding: 15px 20px;
+@keyframes count-pop {
+  from { scale: 0.3; opacity: 0; }
+}
+
+.pdp-bar__cta {
+  flex: 1;
+  min-width: 0;
+  padding: 15px 8px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.pdp-bar__cta.is-added {
+  border-color: #3f6242;
+  color: #3f6242;
 }
 
 /* Checkout */
@@ -4630,6 +4688,11 @@ body.bag-open {
     display: none;
   }
 
+  /* Nothing but the mark once the word is gone — keep the tap target honest. */
+  .bag-button {
+    gap: 0;
+  }
+
   .shop-header {
     height: 54px;
     grid-template-columns: 1fr auto;
@@ -4740,9 +4803,14 @@ body.bag-open {
 
   .pdp-bar { display: flex; }
 
-  /* Clear the sticky buy bar so it never sits on top of the footer. */
-  .pdp .shop-footer {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  /* The always-on action bar carries both CTAs, so the inline pair is redundant. */
+  .pdp__add,
+  .pdp__buy {
+    display: none;
+  }
+
+  .pdp__qty {
+    width: 100%;
   }
 
   /* Touch targets */
@@ -4937,5 +5005,186 @@ body.bag-open {
   .product-card__added svg {
     animation: none !important;
     stroke-dasharray: none !important;
+  }
+}
+
+/* ============================================================
+   Mobile product-page chrome — floating top bar
+   ============================================================ */
+
+.pdp-topbar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* ---- Product page top bar ---- */
+
+  .pdp .shop-header,
+  .pdp .pdp__crumbs {
+    display: none;
+  }
+
+  .pdp .pdp__main {
+    padding-top: 0;
+  }
+
+  .pdp-topbar {
+    position: fixed;
+    z-index: 340;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: block;
+    border-bottom: 1px solid transparent;
+    padding-top: env(safe-area-inset-top);
+    transition: background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+  }
+
+  .pdp-topbar.is-solid {
+    border-bottom-color: var(--line);
+    background: rgb(239 237 229 / 95%);
+    box-shadow: 0 8px 24px rgb(31 24 18 / 8%);
+    backdrop-filter: blur(14px);
+  }
+
+  .pdp-topbar__row {
+    display: flex;
+    height: 54px;
+    align-items: center;
+    gap: 6px;
+    padding-inline: 12px;
+  }
+
+  .pdp-topbar__chip {
+    position: relative;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    place-items: center;
+    border-radius: 50%;
+    background: rgb(18 17 15 / 42%);
+    color: white;
+    backdrop-filter: blur(8px);
+    transition: background-color 300ms ease, color 300ms ease, transform 140ms ease;
+  }
+
+  .pdp-topbar__chip:active {
+    transform: scale(0.9);
+  }
+
+  .pdp-topbar.is-solid .pdp-topbar__chip {
+    background: transparent;
+    color: var(--ink);
+    backdrop-filter: none;
+  }
+
+  .pdp-topbar__chip svg {
+    display: block;
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentcolor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
+  }
+
+  /* Wordmark in place of a home icon — a pill so it reads over the gallery. */
+  .pdp-topbar__brand {
+    display: grid;
+    height: 38px;
+    flex: 0 0 auto;
+    place-items: center;
+    padding-inline: 13px;
+    border-radius: 999px;
+    background: rgb(18 17 15 / 42%);
+    backdrop-filter: blur(8px);
+    transition: background-color 300ms ease, padding 300ms ease;
+  }
+
+  .pdp-topbar__brand img {
+    width: 54px;
+    height: auto;
+    filter: invert(1);
+    transition: filter 300ms ease;
+  }
+
+  .pdp-topbar.is-solid .pdp-topbar__brand {
+    padding-inline: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .pdp-topbar.is-solid .pdp-topbar__brand img {
+    filter: none;
+  }
+
+  /* Keep the gallery's badge clear of the floating chips. */
+  .pdp-mgallery__stage .pdp-gallery__badge {
+    top: 64px;
+    left: 12px;
+  }
+
+  .pdp-topbar__title {
+    min-width: 0;
+    flex: 1;
+    margin: 0;
+    overflow: hidden;
+    padding-inline: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
+
+  .pdp-topbar.is-solid .pdp-topbar__title {
+    opacity: 1;
+  }
+
+  .pdp-topbar__toast {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    padding: 9px 15px;
+    border-radius: 999px;
+    background: rgb(18 17 15 / 88%);
+    color: var(--paper);
+    font-size: 9px;
+    font-weight: 650;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0;
+    pointer-events: none;
+    translate: -50% -6px;
+    transition: opacity 260ms ease, translate 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .pdp-topbar__toast[data-show] {
+    opacity: 1;
+    translate: -50% 0;
+  }
+
+  /* Clear the always-on action bar at the foot of the page. */
+  .pdp .shop-footer {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdp-topbar,
+  .pdp-topbar__chip,
+  .pdp-topbar__title,
+  .pdp-topbar__toast {
+    transition-duration: 0.01ms !important;
+  }
+
+  .pdp-bar__tab svg text,
+  .pdp-topbar__chip svg text {
+    animation: none !important;
   }
 }
