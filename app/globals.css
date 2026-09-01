@@ -348,19 +348,11 @@ video {
 .menu-toggle {
   position: relative;
   display: flex;
-  width: 84px;
+  width: 44px;
   height: 44px;
   align-items: center;
   justify-self: end;
   color: inherit;
-}
-
-.menu-toggle span {
-  margin-right: auto;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
 }
 
 .menu-toggle i {
@@ -585,7 +577,10 @@ video {
 }
 
 .hero h1 {
+  display: flex;
   max-width: 1220px;
+  flex-direction: column;
+  align-items: flex-start;
   margin: 0;
   font-family: var(--serif);
   font-size: clamp(88px, 11.6vw, 178px);
@@ -597,6 +592,8 @@ video {
 .hero__line {
   display: block;
   width: fit-content;
+  padding: 0.1em 0.06em 0.22em;
+  margin: -0.1em -0.06em -0.22em;
   overflow: hidden;
   will-change: translate;
 }
@@ -611,7 +608,7 @@ video {
 }
 
 .hero__line--two {
-  margin-left: 0.36em;
+  margin-left: 0.3em;
   translate: var(--hero-line-two-x) var(--hero-line-two-y);
 }
 
@@ -713,7 +710,7 @@ video {
 }
 
 @keyframes hero-line-in {
-  from { transform: translateY(112%) rotate(2deg); }
+  from { transform: translateY(1.2em) rotate(2deg); }
   to { transform: translateY(0) rotate(0); }
 }
 
@@ -1638,7 +1635,6 @@ video {
 
   .brand { width: 70px; }
   .desktop-nav { display: none; }
-  .menu-toggle { width: 76px; }
 
   .mobile-menu {
     padding: 95px 22px 30px;
@@ -1710,16 +1706,16 @@ video {
     display: inline-block;
   }
 
-  .hero__line--two { margin-left: 0.08em; }
+  .hero__line--two { margin-left: 0.02em; }
 
   /* Mobile intro: the lines wipe in from opposite sides, then the italic word slides in from behind the mask. */
   @keyframes hero-line-in-left {
-    from { transform: translate3d(-9%, 108%, 0) rotate(3.5deg); }
+    from { transform: translate3d(-9%, 1.2em, 0) rotate(3.5deg); }
     to { transform: translate3d(0, 0, 0) rotate(0); }
   }
 
   @keyframes hero-line-in-right {
-    from { transform: translate3d(12%, 108%, 0) rotate(-3deg); }
+    from { transform: translate3d(12%, 1.2em, 0) rotate(-3deg); }
     to { transform: translate3d(0, 0, 0) rotate(0); }
   }
 
@@ -2084,7 +2080,8 @@ video {
 
   .runway-note h2 {
     margin: 70px 0 90px;
-    font-size: clamp(82px, 24vw, 130px);
+    font-size: clamp(52px, 19vw, 130px);
+    letter-spacing: -0.085em;
   }
 
   .runway-note h2 em { padding-left: 0.2em; }
@@ -2132,7 +2129,6 @@ video {
   .manifesto__composition h2 { font-size: 19vw; }
   .chapter-card__copy h3 { font-size: 13.5vw; }
   .film-section__title h2 { font-size: 19vw; }
-  .runway-note h2 { font-size: 24vw; }
 }
 
 @media (prefers-reduced-motion: reduce) {

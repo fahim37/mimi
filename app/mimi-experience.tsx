@@ -304,8 +304,8 @@ export default function MimiExperience() {
           </nav>
           <div className="site-header__actions">
             <BagButton />
-            <button className="menu-toggle" type="button" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-controls="mobile-menu" data-cursor={menuOpen ? "Close" : "Menu"}>
-              <span>{menuOpen ? "Close" : "Menu"}</span><i /><i />
+            <button className="menu-toggle" type="button" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-controls="mobile-menu" aria-label={menuOpen ? "Close menu" : "Open menu"} data-cursor={menuOpen ? "Close" : "Menu"}>
+              <i /><i />
             </button>
           </div>
         </div>
