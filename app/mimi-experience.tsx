@@ -109,6 +109,7 @@ export default function MimiExperience() {
     const measure = () => {
       const viewport = window.innerHeight;
       const mobile = window.innerWidth < 768;
+      const narrow = window.innerWidth <= 900;
       const docRange = Math.max(1, document.documentElement.scrollHeight - viewport);
       document.documentElement.style.setProperty("--page-progress", `${window.scrollY / docRange}`);
       document.documentElement.classList.toggle("header-solid", window.scrollY > viewport * 1.08);
@@ -119,15 +120,18 @@ export default function MimiExperience() {
         const expansion = smoothstep(0, 0.72, progress);
         const exit = smoothstep(0.42, 0.94, progress);
         hero.style.setProperty("--hero-p", `${progress}`);
-        hero.style.setProperty("--hero-scale", `${(mobile ? 1.08 : 1.12) - expansion * (mobile ? 0.08 : 0.12)}`);
-        hero.style.setProperty("--hero-copy-y", `${progress * (mobile ? -54 : -92)}px`);
-        hero.style.setProperty("--hero-copy-opacity", `${1 - exit * 0.8}`);
-        hero.style.setProperty("--hero-clip-left", `${(1 - expansion) * (mobile ? 3.5 : 34)}vw`);
-        hero.style.setProperty("--hero-clip-right", `${(1 - expansion) * (mobile ? 3.5 : 4)}vw`);
-        hero.style.setProperty("--hero-clip-y", `${(1 - expansion) * (mobile ? 7 : 9)}vh`);
-        hero.style.setProperty("--hero-radius", `${(1 - expansion) * (mobile ? 22 : 34)}px`);
-        hero.style.setProperty("--hero-line-one-x", `${progress * (mobile ? -12 : -70)}px`);
-        hero.style.setProperty("--hero-line-two-x", `${progress * (mobile ? 15 : 88)}px`);
+        // Compact widths (matching the 900px hero breakpoint) keep the film full-bleed — no letterboxed
+        // frame to expand — so the scroll drives the type instead: opposing line drift and a slow push-in.
+        hero.style.setProperty("--hero-scale", `${narrow ? 1.03 + progress * 0.09 : 1.12 - expansion * 0.12}`);
+        hero.style.setProperty("--hero-copy-y", `${progress * (narrow ? -104 : -92)}px`);
+        hero.style.setProperty("--hero-copy-opacity", `${1 - exit * (narrow ? 0.88 : 0.8)}`);
+        hero.style.setProperty("--hero-clip-left", `${narrow ? 0 : (1 - expansion) * 34}vw`);
+        hero.style.setProperty("--hero-clip-right", `${narrow ? 0 : (1 - expansion) * 4}vw`);
+        hero.style.setProperty("--hero-clip-y", `${narrow ? 0 : (1 - expansion) * 9}vh`);
+        hero.style.setProperty("--hero-radius", `${narrow ? 0 : (1 - expansion) * 34}px`);
+        hero.style.setProperty("--hero-line-one-x", `${progress * (narrow ? -34 : -70)}px`);
+        hero.style.setProperty("--hero-line-two-x", `${progress * (narrow ? 46 : 88)}px`);
+        hero.style.setProperty("--hero-line-two-y", `${progress * (narrow ? 16 : 0)}px`);
         hero.style.setProperty("--hero-frame-opacity", `${1 - smoothstep(0.05, 0.46, progress)}`);
       }
       const film = filmRef.current;
@@ -353,9 +357,9 @@ export default function MimiExperience() {
         <section className="manifesto section-pad" aria-labelledby="manifesto-title">
           <div className="manifesto__top reveal"><span className="kicker">Mimi, in her own words</span><p>Clothes can whisper<br />and still own the room.</p></div>
           <div className="manifesto__composition">
-            <div className="manifesto__image manifesto__image--left parallax-layer" data-parallax="-50" data-scroll-zoom><Image src="/media/rouge-detail.webp" alt="Detail of red striped Mimi tailoring" fill sizes="(max-width: 767px) 38vw, 22vw" /></div>
+            <div className="manifesto__image manifesto__image--left parallax-layer" data-parallax="-50" data-scroll-zoom><Image src="/media/rouge-detail.webp" alt="Detail of red striped Mimi tailoring" fill sizes="(max-width: 900px) 46vw, 22vw" /></div>
             <h2 id="manifesto-title" className="reveal">Not made<br />to <em>blend in.</em></h2>
-            <div className="manifesto__image manifesto__image--right parallax-layer" data-parallax="68" data-scroll-zoom><Image src="/media/olive-portrait.webp" alt="Portrait wearing Mimi olive top" fill sizes="(max-width: 767px) 38vw, 19vw" /></div>
+            <div className="manifesto__image manifesto__image--right parallax-layer" data-parallax="68" data-scroll-zoom><Image src="/media/olive-portrait.webp" alt="Portrait wearing Mimi olive top" fill sizes="(max-width: 900px) 46vw, 19vw" /></div>
             <p className="manifesto__note reveal">A wardrobe of fluid silhouettes, decisive colour and ease that never disappears into the background.</p>
           </div>
         </section>
