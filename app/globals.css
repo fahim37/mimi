@@ -1122,7 +1122,7 @@ video {
   --film-mask-y: 12%;
   --film-radius: 48px;
   position: relative;
-  height: 230svh;
+  height: 305svh;
   background: #080807;
   color: white;
 }
@@ -1965,7 +1965,7 @@ video {
   }
 
   .film-section {
-    height: 205svh;
+    height: 270svh;
   }
 
   .film-section__pin { min-height: 560px; }

@@ -138,10 +138,13 @@ export default function MimiExperience() {
       if (film) {
         const rect = film.getBoundingClientRect();
         const progress = clamp(-rect.top / Math.max(1, film.offsetHeight - viewport));
+        // The frame opens over the same scroll distance as the pin used to run for, then the extra
+        // height added on the end holds it full-bleed for a beat before the lookbook takes over.
+        const opening = clamp(progress / (mobile ? 0.62 : 0.63));
         film.style.setProperty("--film-p", `${progress}`);
-        film.style.setProperty("--film-mask-x", `${(1 - progress) * (mobile ? 12 : 28)}%`);
-        film.style.setProperty("--film-mask-y", `${(1 - progress) * (mobile ? 18 : 12)}%`);
-        film.style.setProperty("--film-radius", `${(1 - progress) * (mobile ? 24 : 48)}px`);
+        film.style.setProperty("--film-mask-x", `${(1 - opening) * (mobile ? 12 : 28)}%`);
+        film.style.setProperty("--film-mask-y", `${(1 - opening) * (mobile ? 18 : 12)}%`);
+        film.style.setProperty("--film-radius", `${(1 - opening) * (mobile ? 24 : 48)}px`);
       }
       layers.forEach((layer) => {
         const rect = layer.element.getBoundingClientRect();
