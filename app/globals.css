@@ -4677,7 +4677,7 @@ body.bag-open {
 
 @media (max-width: 900px) {
   .site-header__actions {
-    gap: 16px;
+    gap: 4px;
   }
 
   .bag-button__label {
@@ -4687,6 +4687,13 @@ body.bag-open {
   /* Nothing but the mark once the word is gone — keep the tap target honest. */
   .bag-button {
     gap: 0;
+  }
+
+  /* The bars sit flush right inside the button, so most of the apparent gap next to the bag is
+     empty box, not spacing. Trim the box and let height carry the tap target. */
+  .menu-toggle {
+    width: 32px;
+    height: 44px;
   }
 
   .shop-header {
@@ -4811,7 +4818,7 @@ body.bag-open {
 
   /* Touch targets */
   .bag-button {
-    min-width: 44px;
+    min-width: 40px;
     min-height: 44px;
     justify-content: center;
   }
