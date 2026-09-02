@@ -957,15 +957,15 @@ video {
    line still arrives word by word. transition-delay can't do that job any more:
    there is no transition left to delay, only a value being sampled.  */
 .manifesto__mask > span {
-  --word-p: clamp(0, calc((var(--reveal-p, 0) - var(--stagger, 0)) / 0.66), 1);
+  --word-p: clamp(0, calc((var(--reveal-p, 0) - var(--stagger, 0)) / 0.6), 1);
   display: inline-block;
   rotate: calc((1 - var(--word-p)) * 2.6deg);
   transform-origin: left bottom;
   translate: 0 calc((1 - var(--word-p)) * 118%);
 }
 
-.manifesto__top p .manifesto__mask:nth-of-type(1) { --stagger: 0.09; }
-.manifesto__top p .manifesto__mask:nth-of-type(2) { --stagger: 0.17; }
+.manifesto__top p .manifesto__mask:nth-of-type(1) { --stagger: 0.07; }
+.manifesto__top p .manifesto__mask:nth-of-type(2) { --stagger: 0.13; }
 
 .manifesto__composition {
   position: relative;
@@ -990,9 +990,9 @@ video {
   transform: translate(-50%, 0);
 }
 
-.manifesto__composition h2 .manifesto__mask:nth-of-type(2) { --stagger: 0.07; }
-.manifesto__composition h2 .manifesto__mask:nth-of-type(3) { --stagger: 0.15; }
-.manifesto__composition h2 .manifesto__mask:nth-of-type(4) { --stagger: 0.23; }
+.manifesto__composition h2 .manifesto__mask:nth-of-type(2) { --stagger: 0.06; }
+.manifesto__composition h2 .manifesto__mask:nth-of-type(3) { --stagger: 0.12; }
+.manifesto__composition h2 .manifesto__mask:nth-of-type(4) { --stagger: 0.18; }
 
 .manifesto__composition h2 em {
   padding-left: 0.38em;
@@ -1064,7 +1064,7 @@ video {
   width: 1px;
   background: var(--line);
   content: "";
-  scale: 1 clamp(0, calc((var(--reveal-p, 0) - 0.12) / 0.6), 1);
+  scale: 1 clamp(0, calc(var(--reveal-p, 0) / 0.62), 1);
   transform-origin: top center;
 }
 

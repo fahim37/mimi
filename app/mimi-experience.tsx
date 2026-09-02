@@ -188,10 +188,13 @@ export default function MimiExperience() {
       });
       // Scrubbed entrances: --reveal-p is a pure function of where the element
       // sits, never a latched class, so the wipe opens on the way down and runs
-      // backwards on the way up instead of staying played out.
+      // backwards on the way up instead of staying played out. It starts as the
+      // top edge crosses the fold and is settled by the time the element reaches
+      // the lower middle — a short window, so the content is readable early
+      // rather than still assembling halfway up the screen.
       scrubbedReveals.forEach((element) => {
         const top = element.getBoundingClientRect().top;
-        const progress = reducedMotion ? 1 : smoothstep(viewport * 0.94, viewport * 0.34, top);
+        const progress = reducedMotion ? 1 : smoothstep(viewport * 1.0, viewport * 0.6, top);
         element.style.setProperty("--reveal-p", progress.toFixed(4));
       });
       stackCards.forEach((card, index) => {
