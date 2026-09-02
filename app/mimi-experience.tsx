@@ -31,6 +31,44 @@ function SoundIcon({ muted }: { muted: boolean }) {
   );
 }
 
+// One mask, one riser per letter: the mask clips them all at the same baseline while each
+// letter reads its own slice of the block's --reveal-p, so the word cascades instead of arriving
+// as a slab. Decorative by construction — the readable sentence lives in an .sr-only sibling.
+function Letters({ text, from = 0, step = 0.03 }: { text: string; from?: number; step?: number }) {
+  return (
+    <span className="mask" aria-hidden="true">
+      {Array.from(text, (letter, index) => (
+        <span key={index} style={{ "--stagger": (from + index * step).toFixed(3) } as React.CSSProperties}>{letter}</span>
+      ))}
+    </span>
+  );
+}
+
+// A whole word behind its own mask, for lines that should arrive as words rather than letters.
+function Word({ text, stagger = 0, className }: { text: string; stagger?: number; className?: string }) {
+  return (
+    <span className={className ? `mask ${className}` : "mask"} style={{ "--stagger": stagger.toFixed(3) } as React.CSSProperties}>
+      <span>{text}</span>
+    </span>
+  );
+}
+
+// A reading light rather than an entrance: nothing moves, the words simply come up out of the
+// ground colour as the scrub passes over them. Plain inline spans and opacity only, so the line
+// breaks stay exactly where the browser put them and a screen reader still reads one sentence.
+function Wash({ text, span = 0.55 }: { text: string; span?: number }) {
+  const words = text.split(" ");
+  return (
+    <>
+      {words.map((word, index) => (
+        <span key={index} style={{ "--stagger": ((index / words.length) * span).toFixed(3) } as React.CSSProperties}>
+          {index === words.length - 1 ? word : `${word} `}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function Loader({ progress, leaving }: { progress: number; leaving: boolean }) {
   return (
     <div className={`site-loader${leaving ? " is-leaving" : ""}`} aria-hidden="true">
@@ -105,8 +143,12 @@ export default function MimiExperience() {
         element.style.setProperty(name, value);
       };
     };
+    // data-parallax-narrow is the amount to use below 900px, where several sections
+    // drop their absolute collages for a plain stacked grid: there the desktop amounts
+    // drive neighbouring rows toward each other and eat the gap between them.
     const layers = Array.from(document.querySelectorAll<HTMLElement>("[data-parallax]")).map((element) => ({
-      element, amount: Number(element.dataset.parallax ?? 0), inStack: element.closest(".chapter-card") !== null, current: 0, target: 0, set: writer(element),
+      element, amount: Number(element.dataset.parallax ?? 0), narrowAmount: Number(element.dataset.parallaxNarrow ?? element.dataset.parallax ?? 0),
+      inStack: element.closest(".chapter-card") !== null, current: 0, target: 0, set: writer(element),
     }));
     const zoomLayers = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-zoom]")).map((element) => ({
       element, inStack: element.closest(".chapter-card") !== null, current: 1.025, target: 1.025, set: writer(element),
@@ -114,14 +156,28 @@ export default function MimiExperience() {
     const stackCards = Array.from(document.querySelectorAll<HTMLElement>("[data-stack-card]")).map((element) => ({
       element, current: 0, target: 0, stickyTop: 0, set: writer(element),
     }));
-    const scrubbedReveals = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-reveal]")).map((element) => ({
-      element, progress: 0, set: writer(element),
-    }));
+    // "from to", as viewport fractions of the element's own top edge: the scrub opens as the top
+    // crosses `from` and is settled once it reaches `to`. Bare [data-scroll-reveal] keeps the
+    // original window. Anything much taller than a line of body copy needs its own: settling at
+    // 0.6 of the viewport puts a 400px heading's whole entrance below the fold, so it plays out
+    // where nobody can see it and is already at rest by the time it reaches the reading zone.
+    const scrubbedReveals = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-reveal]")).map((element) => {
+      const bounds = (element.dataset.scrollReveal ?? "").split(" ").filter(Boolean).map(Number);
+      return {
+        element,
+        from: Number.isFinite(bounds[0]) ? bounds[0] : 1,
+        to: Number.isFinite(bounds[1]) ? bounds[1] : 0.6,
+        progress: 0,
+        set: writer(element),
+      };
+    });
     const hero = heroRef.current;
     const film = filmRef.current;
     const stack = document.querySelector<HTMLElement>(".chapter-stack");
+    const footer = document.querySelector<HTMLElement>(".footer");
     const setHero = writer(hero);
     const setFilm = writer(film);
+    const setFooter = writer(footer);
     // --page-progress changes every scroll frame and exactly one element reads it. Set on
     // :root it invalidated the whole document's style on each of those frames, because custom
     // properties inherit; set on the bar itself the recalc stops at one element.
@@ -144,7 +200,13 @@ export default function MimiExperience() {
     // scrollHeight only moves when the content does — on resize, or as media finish loading —
     // and reading it costs a layout flush whenever anything above is dirty. Cached, not polled.
     let docRange = 1;
-    const measureDoc = () => { docRange = Math.max(1, root.scrollHeight - viewport); };
+    // The footer's own height is the range its finale is scrubbed over, and it moves with the
+    // same content changes docRange does, so it is cached on the same triggers.
+    let footerRange = 1;
+    const measureDoc = () => {
+      docRange = Math.max(1, root.scrollHeight - viewport);
+      footerRange = Math.max(1, footer?.offsetHeight ?? 1);
+    };
     let frame = 0;
     let dirty = false;
     const clamp = (value: number) => Math.min(1, Math.max(0, value));
@@ -171,6 +233,7 @@ export default function MimiExperience() {
       const heroRange = hero ? Math.max(1, hero.offsetHeight - viewport) : 1;
       const filmRect = film?.getBoundingClientRect();
       const filmRange = film ? Math.max(1, film.offsetHeight - viewport) : 1;
+      const footerRect = footer?.getBoundingClientRect();
       // Below 900px the stylesheet retires the stack's own drift and push-in — a few pixels of
       // movement on a pinned card, for eight promoted layers. Easing them back to rest here
       // instead of measuring them saves twelve rect reads a frame and lets the writer fall
@@ -179,7 +242,7 @@ export default function MimiExperience() {
         if (layer.inStack && narrow) { layer.target = 0; return; }
         const rect = layer.element.getBoundingClientRect();
         const offset = (viewport / 2 - (rect.top + rect.height / 2)) / viewport;
-        layer.target = Math.min(1, Math.max(-1, offset)) * layer.amount * (mobile ? 0.68 : 1);
+        layer.target = Math.min(1, Math.max(-1, offset)) * (narrow ? layer.narrowAmount : layer.amount) * (mobile ? 0.68 : 1);
       });
       zoomLayers.forEach((layer) => {
         if (layer.inStack && narrow) { layer.target = 1.025; return; }
@@ -196,7 +259,7 @@ export default function MimiExperience() {
       // rather than still assembling halfway up the screen.
       scrubbedReveals.forEach((item) => {
         const top = item.element.getBoundingClientRect().top;
-        item.progress = reducedMotion ? 1 : smoothstep(viewport * 1.0, viewport * 0.6, top);
+        item.progress = reducedMotion ? 1 : smoothstep(viewport * item.from, viewport * item.to, top);
       });
       stackCards.forEach((card, index) => {
         const nextCard = stackCards[index + 1];
@@ -255,6 +318,14 @@ export default function MimiExperience() {
         setFilm("--film-radius", `${(1 - opening) * (mobile ? 24 : 48)}px`);
       }
       root.classList.toggle("header-immersive", immersive);
+      // The sign-off is the last thing on the page, so it can't be scrubbed off its distance to
+      // the fold the way [data-scroll-reveal] is: there is no scroll left underneath it and the
+      // choreography would stall part-played wherever the visitor stops. Measured against the
+      // footer's own entrance instead, one progress value drives the whole finale and reaches 1
+      // exactly as the page bottom does — the stylesheet slices it into stages from there.
+      if (footer && footerRect) {
+        setFooter("--footer-p", (reducedMotion ? 1 : clamp((viewport - footerRect.top) / footerRange)).toFixed(4));
+      }
       scrubbedReveals.forEach((item) => item.set("--reveal-p", item.progress.toFixed(4)));
     };
     // The eased layers: writes only, so it can share a frame with measure() without ever
@@ -441,6 +512,69 @@ export default function MimiExperience() {
     return () => cleanups.forEach((cleanup) => cleanup());
   }, []);
 
+  // The wordmark is the one thing down here that answers back. A click or a tap sends a soft
+  // wave out from the letter you hit: that one dips deepest and springs back, and its neighbours
+  // follow a beat later, the delay growing with distance from the contact point. It plays on the
+  // mask rather than the riser inside it, so a press never fights the entrance the scroll may
+  // still be scrubbing on the same letter.
+  useEffect(() => {
+    const word = document.querySelector<HTMLElement>(".footer__word");
+    if (!word || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const letters = Array.from(word.querySelectorAll<HTMLElement>(".mask"));
+    if (letters.length === 0) return;
+    const play = (clientX: number) => {
+      const centres = letters.map((letter) => {
+        const box = letter.getBoundingClientRect();
+        return box.left + box.width / 2;
+      });
+      let hit = 0;
+      centres.forEach((centre, index) => {
+        if (Math.abs(centre - clientX) < Math.abs(centres[hit] - clientX)) hit = index;
+      });
+      letters.forEach((letter, index) => {
+        const distance = Math.abs(index - hit);
+        // The wave thins out as it travels but never dies: the far letter still moves enough to
+        // read as one piece of type reacting rather than four separate ones.
+        const strength = Math.max(0.3, 1 - distance * 0.26);
+        // Neighbours are shoved outwards and lean away from the strike; the letter actually hit
+        // takes the blow straight down, with nowhere to lean.
+        const side = Math.sign(index - hit);
+        const shove = side * 0.062 * strength;
+        const lean = side * 1.7 * strength;
+        letter.getAnimations().forEach((animation) => animation.cancel());
+        letter.animate(
+          [
+            { translate: "0 0", rotate: "0deg", scale: 1 },
+            { translate: `${shove.toFixed(4)}em ${(0.062 * strength).toFixed(4)}em`, rotate: `${lean.toFixed(3)}deg`, scale: 1 - 0.085 * strength, offset: 0.24 },
+            { translate: `${(-shove * 0.26).toFixed(4)}em ${(-0.018 * strength).toFixed(4)}em`, rotate: `${(-lean * 0.28).toFixed(3)}deg`, scale: 1 + 0.02 * strength, offset: 0.56 },
+            { translate: "0 0", rotate: "0deg", scale: 1 },
+          ],
+          { duration: 760, delay: distance * 52, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+        );
+      });
+    };
+    // A mouse can't scroll by dragging, so it fires the moment the button goes down. A finger
+    // can, and at the very bottom of the page an upward flick often starts right on the
+    // wordmark — so touch waits for the release and only counts as a tap if it stayed put.
+    let startX = 0, startY = 0, startTime = 0;
+    const down = (event: PointerEvent) => {
+      if (event.pointerType === "mouse") { play(event.clientX); return; }
+      startX = event.clientX; startY = event.clientY; startTime = event.timeStamp;
+    };
+    const up = (event: PointerEvent) => {
+      if (event.pointerType === "mouse") return;
+      const moved = Math.hypot(event.clientX - startX, event.clientY - startY);
+      if (moved < 12 && event.timeStamp - startTime < 600) play(event.clientX);
+    };
+    word.addEventListener("pointerdown", down);
+    word.addEventListener("pointerup", up);
+    return () => {
+      word.removeEventListener("pointerdown", down);
+      word.removeEventListener("pointerup", up);
+      letters.forEach((letter) => letter.getAnimations().forEach((animation) => animation.cancel()));
+    };
+  }, []);
+
   const toggleVideo = async () => {
     const video = runwayRef.current; if (!video) return;
     if (video.paused) { userPausedRef.current = false; await video.play(); setPlaying(true); }
@@ -525,24 +659,24 @@ export default function MimiExperience() {
 
         <section className="manifesto section-pad" aria-labelledby="manifesto-title">
           <div className="manifesto__top" data-scroll-reveal>
-            <span className="kicker manifesto__mask manifesto__mask--line"><span>Mimi, in her own words</span></span>
+            <span className="kicker mask mask--line"><span>Mimi, in her own words</span></span>
             <p className="parallax-layer" data-parallax="16">
-              <span className="manifesto__mask manifesto__mask--line"><span>Clothes can whisper</span></span>
-              <span className="manifesto__mask manifesto__mask--line"><span>and still own the room.</span></span>
+              <span className="mask mask--line"><span>Clothes can whisper</span></span>
+              <span className="mask mask--line"><span>and still own the room.</span></span>
             </p>
           </div>
           <div className="manifesto__composition">
-            <div className="manifesto__image manifesto__image--left parallax-layer" data-parallax="-50" data-scroll-reveal>
+            <div className="manifesto__image manifesto__image--left parallax-layer" data-parallax="-50" data-parallax-narrow="0" data-scroll-reveal>
               <span className="manifesto__image-inner" data-scroll-zoom>
                 <Image src="/media/rouge-detail.webp" alt="Detail of red striped Mimi tailoring" fill sizes="(max-width: 900px) 46vw, 22vw" />
               </span>
             </div>
-            <h2 id="manifesto-title" className="parallax-layer" data-parallax="-30" data-scroll-reveal>
-              <span className="manifesto__mask"><span>Not</span></span> <span className="manifesto__mask"><span>made</span></span>
+            <h2 id="manifesto-title" className="parallax-layer" data-parallax="-30" data-parallax-narrow="-10" data-scroll-reveal>
+              <span className="mask"><span>Not</span></span> <span className="mask"><span>made</span></span>
               <br />
-              <span className="manifesto__mask"><span>to</span></span> <span className="manifesto__mask"><span><em>blend in.</em></span></span>
+              <span className="mask"><span>to</span></span> <span className="mask"><span><em>blend in.</em></span></span>
             </h2>
-            <div className="manifesto__image manifesto__image--right parallax-layer" data-parallax="68" data-scroll-reveal>
+            <div className="manifesto__image manifesto__image--right parallax-layer" data-parallax="68" data-parallax-narrow="0" data-scroll-reveal>
               <span className="manifesto__image-inner" data-scroll-zoom>
                 <Image src="/media/olive-portrait.webp" alt="Portrait wearing Mimi olive top" fill sizes="(max-width: 900px) 46vw, 19vw" />
               </span>
@@ -627,15 +761,39 @@ export default function MimiExperience() {
         </section>
 
         <section className="runway-note section-pad" aria-labelledby="runway-title">
-          <div className="runway-note__line reveal"><span>BUFT · 2026</span><span>Dhaka · Bangladesh</span></div>
-          <h2 id="runway-title" className="reveal">Beginning<br />of an <em>era.</em></h2>
-          <div className="runway-note__bottom reveal"><p>Mimi took centre stage at the Fashion Runway 2026 — a first look at a newly launched dress collection and the energy behind it.</p><a className="circle-link circle-link--dark" href="#top" data-cursor="Top" aria-label="Back to top"><Arrow direction="down" /></a></div>
+          <div className="runway-note__line" data-scroll-reveal="0.98 0.35">
+            <Word text="BUFT · 2026" />
+            <Word text="Dhaka · Bangladesh" stagger={0.1} />
+          </div>
+          <h2 id="runway-title" data-scroll-reveal="1 0.29">
+            <span className="sr-only">Beginning of an era.</span>
+            <Letters text="Beginning" step={0.028} />
+            <br aria-hidden="true" />
+            <span aria-hidden="true">
+              <Word text="of" stagger={0.3} /> <Word text="an" stagger={0.36} />
+            </span>{" "}
+            <em aria-hidden="true"><Word text="era." stagger={0.44} /></em>
+          </h2>
+          <div className="runway-note__bottom" data-scroll-reveal="0.98 0.38">
+            <p className="wash"><Wash text="Mimi took centre stage at the Fashion Runway 2026 — a first look at a newly launched dress collection and the energy behind it." /></p>
+            <a className="circle-link circle-link--dark" href="#top" data-cursor="Top" aria-label="Back to top"><Arrow direction="down" /></a>
+          </div>
         </section>
       </main>
 
       <footer className="footer">
-        <div className="footer__top"><p>Ready for your<br />Mimi moment?</p><Link href="/contact" data-cursor="Hello">Let&apos;s talk <Arrow /></Link></div>
-        <div className="footer__word" aria-hidden="true">MIMI</div>
+        <div className="footer__top">
+          <p>
+            <Word text="Ready for your" className="mask--line" />
+            <Word text="Mimi moment?" stagger={0.1} className="mask--line" />
+          </p>
+          <Link href="/contact" data-cursor="Hello"><Word text="Let's talk" stagger={0.18} /><Arrow /></Link>
+        </div>
+        <div className="footer__word" aria-hidden="true" data-cursor="Tap">
+          {Array.from("MIMI", (letter, index) => (
+            <Word text={letter} stagger={index * 0.12} key={index} />
+          ))}
+        </div>
         <div className="footer__bottom"><span>© {new Date().getFullYear()} Mimi</span><span>Curated style for the conscious wardrobe.</span><a href="#top">Back to top ↑</a></div>
       </footer>
     </div>
