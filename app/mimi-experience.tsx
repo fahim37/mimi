@@ -100,6 +100,7 @@ export default function MimiExperience() {
     const stackCards = Array.from(document.querySelectorAll<HTMLElement>("[data-stack-card]")).map((element) => ({
       element, current: 0, target: 0, stickyTop: 0,
     }));
+    const scrubbedReveals = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-reveal]"));
     // Each card pins at its own sticky offset (staggered on mobile so the card below keeps a
     // visible edge), so read the resolved value instead of hard-coding the breakpoint here.
     const measureStackTops = () => {
@@ -132,7 +133,7 @@ export default function MimiExperience() {
         const progress = clamp(-rect.top / Math.max(1, hero.offsetHeight - viewport));
         const expansion = smoothstep(0, 0.72, progress);
         // Compact widths never letterbox the hero film, so it is full-bleed the whole pin.
-        if (coversChrome(rect) && (narrow || expansion > 0.8)) immersive = true;
+        if (coversChrome(rect) && (narrow || expansion > 0.45)) immersive = true;
         // Staged exit: the eyebrow and lower copy clear out first, then the headline lifts word by word
         // behind each line's mask (--hero-word-p drives the stagger in CSS). Everything is gone by ~60%
         // of the pin, so the film finishes the section alone instead of the type hanging on to the end.
@@ -164,7 +165,10 @@ export default function MimiExperience() {
         // The frame opens over the same scroll distance as the pin used to run for, then the extra
         // height added on the end holds it full-bleed for a beat before the lookbook takes over.
         const opening = clamp(progress / (mobile ? 0.62 : 0.63));
-        if (coversChrome(rect) && opening > 0.8) immersive = true;
+        // The plate comes off early in the opening rather than at the end: both pinned sections sit
+        // on near-black, so the bar reads the same either way and the swap is finished well before
+        // the frame slides up under it.
+        if (coversChrome(rect) && opening > 0.32) immersive = true;
         film.style.setProperty("--film-p", `${progress}`);
         film.style.setProperty("--film-mask-x", `${(1 - opening) * (mobile ? 12 : 28)}%`);
         film.style.setProperty("--film-mask-y", `${(1 - opening) * (mobile ? 18 : 12)}%`);
@@ -181,6 +185,14 @@ export default function MimiExperience() {
         const center = rect.top + rect.height / 2;
         const proximity = clamp(1 - Math.abs(center - viewport / 2) / (viewport * 0.9));
         layer.target = 1.025 + proximity * (mobile ? 0.032 : 0.06);
+      });
+      // Scrubbed entrances: --reveal-p is a pure function of where the element
+      // sits, never a latched class, so the wipe opens on the way down and runs
+      // backwards on the way up instead of staying played out.
+      scrubbedReveals.forEach((element) => {
+        const top = element.getBoundingClientRect().top;
+        const progress = reducedMotion ? 1 : smoothstep(viewport * 0.94, viewport * 0.34, top);
+        element.style.setProperty("--reveal-p", progress.toFixed(4));
       });
       stackCards.forEach((card, index) => {
         const nextCard = stackCards[index + 1];
@@ -391,7 +403,7 @@ export default function MimiExperience() {
         </section>
 
         <section className="manifesto section-pad" aria-labelledby="manifesto-title">
-          <div className="manifesto__top reveal">
+          <div className="manifesto__top" data-scroll-reveal>
             <span className="kicker manifesto__mask manifesto__mask--line"><span>Mimi, in her own words</span></span>
             <p className="parallax-layer" data-parallax="16">
               <span className="manifesto__mask manifesto__mask--line"><span>Clothes can whisper</span></span>
@@ -399,22 +411,22 @@ export default function MimiExperience() {
             </p>
           </div>
           <div className="manifesto__composition">
-            <div className="manifesto__image manifesto__image--left parallax-layer reveal" data-parallax="-50">
+            <div className="manifesto__image manifesto__image--left parallax-layer" data-parallax="-50" data-scroll-reveal>
               <span className="manifesto__image-inner" data-scroll-zoom>
                 <Image src="/media/rouge-detail.webp" alt="Detail of red striped Mimi tailoring" fill sizes="(max-width: 900px) 46vw, 22vw" />
               </span>
             </div>
-            <h2 id="manifesto-title" className="reveal parallax-layer" data-parallax="-30">
+            <h2 id="manifesto-title" className="parallax-layer" data-parallax="-30" data-scroll-reveal>
               <span className="manifesto__mask"><span>Not</span></span> <span className="manifesto__mask"><span>made</span></span>
               <br />
               <span className="manifesto__mask"><span>to</span></span> <span className="manifesto__mask"><span><em>blend in.</em></span></span>
             </h2>
-            <div className="manifesto__image manifesto__image--right parallax-layer reveal" data-parallax="68">
+            <div className="manifesto__image manifesto__image--right parallax-layer" data-parallax="68" data-scroll-reveal>
               <span className="manifesto__image-inner" data-scroll-zoom>
                 <Image src="/media/olive-portrait.webp" alt="Portrait wearing Mimi olive top" fill sizes="(max-width: 900px) 46vw, 19vw" />
               </span>
             </div>
-            <p className="manifesto__note reveal">A wardrobe of fluid silhouettes, decisive colour and ease that never disappears into the background.</p>
+            <p className="manifesto__note" data-scroll-reveal>A wardrobe of fluid silhouettes, decisive colour and ease that never disappears into the background.</p>
           </div>
         </section>
 

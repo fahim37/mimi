@@ -319,6 +319,9 @@ video {
   filter: none;
 }
 
+/* The scroll bar is part of the solid plate: when the plate comes off over an opened film,
+   the white rule goes with it rather than floating across the footage. */
+.header-immersive .site-header:not(.menu-is-open) .page-progress,
 .site-header.menu-is-open .page-progress {
   opacity: 0;
 }
@@ -397,6 +400,7 @@ video {
   background: white;
   mix-blend-mode: difference;
   transform-origin: left;
+  transition: opacity 300ms ease;
 }
 
 .mobile-menu {
@@ -897,16 +901,19 @@ video {
   background: var(--paper);
 }
 
-/* The masked children carry the entrance, so the block itself opts out of the
-   default .reveal fade — a fade under a mask wipe only makes both look soft. */
+/* Scroll-scrubbed entrance. Every value below is a function of --reveal-p, the
+   0→1 progress the scroll loop writes onto each [data-scroll-reveal] element
+   from where it sits in the viewport. Nothing latches on a class, so scrolling
+   back up plays the whole thing in reverse — the images close over their
+   frames, the words drop back behind their masks — and scrolling down opens it
+   again. Hence no transitions here: a transition would lag a beat behind the
+   scroll rather than tracking it. */
 .manifesto__top {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: start;
   padding-top: 20px;
-  opacity: 1;
-  transform: none;
 }
 
 /* Absolute, so the pseudo stays out of the grid's item flow while it draws. */
@@ -918,13 +925,8 @@ video {
   height: 1px;
   background: var(--line);
   content: "";
-  scale: 0 1;
+  scale: var(--reveal-p, 0) 1;
   transform-origin: left center;
-  transition: scale 1100ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.manifesto__top.is-visible::before {
-  scale: 1 1;
 }
 
 .manifesto__top p {
@@ -951,22 +953,19 @@ video {
   display: block;
 }
 
+/* Each word reads a slice of its parent's progress, offset by --stagger, so the
+   line still arrives word by word. transition-delay can't do that job any more:
+   there is no transition left to delay, only a value being sampled.  */
 .manifesto__mask > span {
+  --word-p: clamp(0, calc((var(--reveal-p, 0) - var(--stagger, 0)) / 0.66), 1);
   display: inline-block;
-  rotate: 2.6deg;
+  rotate: calc((1 - var(--word-p)) * 2.6deg);
   transform-origin: left bottom;
-  translate: 0 118%;
-  transition: translate 1150ms cubic-bezier(0.16, 1, 0.3, 1), rotate 1150ms cubic-bezier(0.16, 1, 0.3, 1);
+  translate: 0 calc((1 - var(--word-p)) * 118%);
 }
 
-.is-visible .manifesto__mask > span,
-.manifesto__mask.is-visible > span {
-  rotate: 0deg;
-  translate: 0 0;
-}
-
-.manifesto__top p .manifesto__mask:nth-of-type(1) > span { transition-delay: 130ms; }
-.manifesto__top p .manifesto__mask:nth-of-type(2) > span { transition-delay: 230ms; }
+.manifesto__top p .manifesto__mask:nth-of-type(1) { --stagger: 0.09; }
+.manifesto__top p .manifesto__mask:nth-of-type(2) { --stagger: 0.17; }
 
 .manifesto__composition {
   position: relative;
@@ -988,19 +987,12 @@ video {
   line-height: 0.77;
   text-align: center;
   /* Centring only — the words do the moving, and --parallax-y rides on `translate`. */
-  opacity: 1;
   transform: translate(-50%, 0);
 }
 
-/* Specificity guard: .reveal.is-visible (0,2,0) outranks the element rule above and
-   would drop the -50% centring once the block reveals. Restate it at class weight. */
-.manifesto__composition h2.reveal {
-  transform: translate(-50%, 0);
-}
-
-.manifesto__composition h2 .manifesto__mask:nth-of-type(2) > span { transition-delay: 100ms; }
-.manifesto__composition h2 .manifesto__mask:nth-of-type(3) > span { transition-delay: 210ms; }
-.manifesto__composition h2 .manifesto__mask:nth-of-type(4) > span { transition-delay: 320ms; }
+.manifesto__composition h2 .manifesto__mask:nth-of-type(2) { --stagger: 0.07; }
+.manifesto__composition h2 .manifesto__mask:nth-of-type(3) { --stagger: 0.15; }
+.manifesto__composition h2 .manifesto__mask:nth-of-type(4) { --stagger: 0.23; }
 
 .manifesto__composition h2 em {
   padding-left: 0.38em;
@@ -1008,32 +1000,25 @@ video {
 }
 
 /* Frame and image are separate boxes: the wipe runs on the inner one so the
-   clip never eats the frame's shadow, which fades up alongside it. */
+   clip never eats the frame's shadow, which lifts alongside it. The tilt is
+   interpolated between two custom properties so a breakpoint can change where
+   the swing starts without restating the whole expression. */
 .manifesto__image {
   position: absolute;
   overflow: hidden;
-  box-shadow: 0 8px 22px rgb(31 24 18 / 0%);
-  opacity: 1;
-  scale: 1.07;
-  transform: none;
-  transition: scale 1500ms cubic-bezier(0.16, 1, 0.3, 1), rotate 1500ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 1300ms ease 200ms;
+  box-shadow: 0 25px 75px rgb(31 24 18 / calc(var(--reveal-p, 0) * 13%));
+  scale: calc(1.07 - var(--reveal-p, 0) * 0.07);
+  rotate: calc(var(--tilt-from) + (var(--tilt-to) - var(--tilt-from)) * var(--reveal-p, 0));
 }
 
-.manifesto__image.is-visible {
-  box-shadow: 0 25px 75px rgb(31 24 18 / 13%);
-  scale: 1;
-}
-
+/* The wipe itself: inset(0 0 100% 0) is shut, inset(0 0 0 0) is open. Scrolling
+   up walks that bottom edge back up over the picture, so it closes the way it
+   opened instead of cutting. */
 .manifesto__image-inner {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  clip-path: inset(0 0 100% 0);
-  transition: clip-path 1350ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.manifesto__image.is-visible .manifesto__image-inner {
-  clip-path: inset(0 0 0 0);
+  clip-path: inset(0 0 calc((1 - var(--reveal-p, 0)) * 100%) 0);
 }
 
 .manifesto__image img {
@@ -1041,27 +1026,21 @@ video {
 }
 
 .manifesto__image--left {
+  --tilt-from: -8deg;
+  --tilt-to: -3deg;
   top: 50px;
   left: 3vw;
   width: min(22vw, 320px);
   aspect-ratio: 0.75;
-  rotate: -8deg;
-}
-
-.manifesto__image--left.is-visible {
-  rotate: -3deg;
 }
 
 .manifesto__image--right {
+  --tilt-from: 9deg;
+  --tilt-to: 3.5deg;
   right: 4vw;
   bottom: 36px;
   width: min(19vw, 275px);
   aspect-ratio: 0.72;
-  rotate: 9deg;
-}
-
-.manifesto__image--right.is-visible {
-  rotate: 3.5deg;
 }
 
 .manifesto__note {
@@ -1073,6 +1052,8 @@ video {
   margin: 0;
   font-size: 14px;
   line-height: 1.6;
+  opacity: var(--reveal-p, 0);
+  translate: 0 calc((1 - var(--reveal-p, 0)) * 44px);
 }
 
 .manifesto__note::before {
@@ -1083,13 +1064,8 @@ video {
   width: 1px;
   background: var(--line);
   content: "";
-  scale: 1 0;
+  scale: 1 clamp(0, calc((var(--reveal-p, 0) - 0.12) / 0.6), 1);
   transform-origin: top center;
-  transition: scale 1000ms cubic-bezier(0.16, 1, 0.3, 1) 220ms;
-}
-
-.manifesto__note.is-visible::before {
-  scale: 1 1;
 }
 
 /* Collection chapters */
@@ -2060,8 +2036,6 @@ video {
     transform: none;
   }
 
-  .manifesto__composition h2.reveal { transform: none; }
-
   .manifesto__composition h2 em { padding-left: 0.12em; }
 
   .manifesto__image {
@@ -2072,9 +2046,9 @@ video {
 
   /* Tighter grid: the tilt settles over a shorter arc so a corner never swings
      over the neighbouring cell on the way in. */
-  .manifesto__image--left { grid-area: 1 / 1; rotate: -6deg; }
+  .manifesto__image--left { grid-area: 1 / 1; --tilt-from: -6deg; }
 
-  .manifesto__image--right { grid-area: 3 / 2; rotate: 7deg; }
+  .manifesto__image--right { grid-area: 3 / 2; --tilt-from: 7deg; }
 
   /* Relative (not static) so the drawn rule can anchor to it — which means the
      desktop left/bottom offsets have to be cleared, or they'd shift the grid item. */
@@ -2372,6 +2346,7 @@ video {
   .chapter-card { position: relative; top: auto !important; }
   [data-scroll-zoom] > img { scale: 1 !important; }
   .reveal { opacity: 1; transform: none; }
+  [data-scroll-reveal] { --reveal-p: 1 !important; }
 }
 
 /* ============================================================
