@@ -52,6 +52,8 @@ export default function MimiExperience() {
   const heroRef = useRef<HTMLElement>(null);
   const filmRef = useRef<HTMLElement>(null);
   const runwayRef = useRef<HTMLVideoElement>(null);
+  // Set by the visitor's own Pause tap, so the off-screen pause/resume never overrides it.
+  const userPausedRef = useRef(false);
   const editTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,16 +93,35 @@ export default function MimiExperience() {
 
   useEffect(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const root = document.documentElement;
+    // One style write per property, and only when the value actually changes. Outside the
+    // hero's pin the sixteen hero variables are constant, and re-setting them every scroll
+    // frame would still invalidate the whole subtree's style for nothing.
+    const writer = (element: HTMLElement | null) => {
+      const last = new Map<string, string>();
+      return (name: string, value: string) => {
+        if (!element || last.get(name) === value) return;
+        last.set(name, value);
+        element.style.setProperty(name, value);
+      };
+    };
     const layers = Array.from(document.querySelectorAll<HTMLElement>("[data-parallax]")).map((element) => ({
-      element, amount: Number(element.dataset.parallax ?? 0), current: 0, target: 0,
+      element, amount: Number(element.dataset.parallax ?? 0), current: 0, target: 0, set: writer(element),
     }));
     const zoomLayers = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-zoom]")).map((element) => ({
-      element, current: 1.025, target: 1.025,
+      element, current: 1.025, target: 1.025, set: writer(element),
     }));
     const stackCards = Array.from(document.querySelectorAll<HTMLElement>("[data-stack-card]")).map((element) => ({
-      element, current: 0, target: 0, stickyTop: 0,
+      element, current: 0, target: 0, stickyTop: 0, set: writer(element),
     }));
-    const scrubbedReveals = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-reveal]"));
+    const scrubbedReveals = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-reveal]")).map((element) => ({
+      element, progress: 0, set: writer(element),
+    }));
+    const hero = heroRef.current;
+    const film = filmRef.current;
+    const setHero = writer(hero);
+    const setFilm = writer(film);
+    const setRoot = writer(root);
     // Each card pins at its own sticky offset (staggered on mobile so the card below keeps a
     // visible edge), so read the resolved value instead of hard-coding the breakpoint here.
     const measureStackTops = () => {
@@ -108,73 +129,37 @@ export default function MimiExperience() {
         card.stickyTop = Number.parseFloat(window.getComputedStyle(card.element).top) || 0;
       });
     };
+    // Viewport metrics are cached on resize rather than read per frame: on a phone the
+    // address bar collapsing fires resize, so the cache stays honest without the per-frame cost.
+    let viewport = window.innerHeight;
+    let width = window.innerWidth;
     let frame = 0;
+    let dirty = false;
     const clamp = (value: number) => Math.min(1, Math.max(0, value));
     const smoothstep = (start: number, end: number, value: number) => {
       const x = clamp((value - start) / (end - start));
       return x * x * (3 - 2 * x);
     };
+    // A film opened out to the edges of the screen shouldn't have the solid header parked on
+    // it as a black slab. True while a pinned panel still covers the strip the bar sits in —
+    // it keeps covering it as the section leaves, so the test is the bottom edge, not the
+    // whole viewport.
+    const coversChrome = (box: DOMRect) => box.top <= 1 && box.bottom >= 88;
+    // Everything the scroll position decides, in two strict halves: every measurement first,
+    // then every style write. A getBoundingClientRect that follows a style write forces the
+    // browser to flush that write before answering, and with thirty-odd measured elements the
+    // old interleaved loop paid for that flush many times per frame — the main-thread cost that
+    // showed up as stutter on phones.
     const measure = () => {
-      const viewport = window.innerHeight;
-      const mobile = window.innerWidth < 768;
-      const narrow = window.innerWidth <= 900;
-      const docRange = Math.max(1, document.documentElement.scrollHeight - viewport);
-      document.documentElement.style.setProperty("--page-progress", `${window.scrollY / docRange}`);
-      document.documentElement.classList.toggle("header-solid", window.scrollY > viewport * 1.08);
-      // A film opened out to the edges of the screen shouldn't have the solid header parked on
-      // it as a black slab. True while a pinned panel still covers the strip the bar sits in —
-      // it keeps covering it as the section leaves, so the test is the bottom edge, not the
-      // whole viewport.
-      const coversChrome = (box: DOMRect) => box.top <= 1 && box.bottom >= 88;
-      let immersive = false;
-      const hero = heroRef.current;
-      if (hero) {
-        const rect = hero.getBoundingClientRect();
-        const progress = clamp(-rect.top / Math.max(1, hero.offsetHeight - viewport));
-        const expansion = smoothstep(0, 0.72, progress);
-        // Compact widths never letterbox the hero film, so it is full-bleed the whole pin.
-        if (coversChrome(rect) && (narrow || expansion > 0.45)) immersive = true;
-        // Staged exit: the eyebrow and lower copy clear out first, then the headline lifts word by word
-        // behind each line's mask (--hero-word-p drives the stagger in CSS). Everything is gone by ~60%
-        // of the pin, so the film finishes the section alone instead of the type hanging on to the end.
-        const tail = smoothstep(0.03, 0.4, progress);
-        const words = smoothstep(0.1, 0.8, progress);
-        hero.style.setProperty("--hero-p", `${progress}`);
-        // Compact widths (matching the 900px hero breakpoint) keep the film full-bleed — no letterboxed
-        // frame to expand — so the scroll drives the type instead: opposing line drift and a slow push-in.
-        hero.style.setProperty("--hero-scale", `${narrow ? 1.03 + progress * 0.09 : 1.12 - expansion * 0.12}`);
-        // The block drifts slower than the film (parallax lag); the word lift supplies the acceleration.
-        hero.style.setProperty("--hero-copy-y", `${progress * (narrow ? -96 : -120)}px`);
-        hero.style.setProperty("--hero-copy-opacity", `${1 - smoothstep(0.68, 0.8, progress)}`);
-        hero.style.setProperty("--hero-copy-events", tail > 0.85 ? "none" : "auto");
-        hero.style.setProperty("--hero-tail-p", `${tail}`);
-        hero.style.setProperty("--hero-word-p", `${words}`);
-        hero.style.setProperty("--hero-clip-left", `${narrow ? 0 : (1 - expansion) * 34}vw`);
-        hero.style.setProperty("--hero-clip-right", `${narrow ? 0 : (1 - expansion) * 4}vw`);
-        hero.style.setProperty("--hero-clip-y", `${narrow ? 0 : (1 - expansion) * 9}vh`);
-        hero.style.setProperty("--hero-radius", `${narrow ? 0 : (1 - expansion) * 34}px`);
-        hero.style.setProperty("--hero-line-one-x", `${progress * (narrow ? -40 : -78)}px`);
-        hero.style.setProperty("--hero-line-two-x", `${progress * (narrow ? 56 : 100)}px`);
-        hero.style.setProperty("--hero-line-two-y", `${progress * (narrow ? 14 : 0)}px`);
-        hero.style.setProperty("--hero-frame-opacity", `${1 - smoothstep(0.05, 0.46, progress)}`);
-      }
-      const film = filmRef.current;
-      if (film) {
-        const rect = film.getBoundingClientRect();
-        const progress = clamp(-rect.top / Math.max(1, film.offsetHeight - viewport));
-        // The frame opens over the same scroll distance as the pin used to run for, then the extra
-        // height added on the end holds it full-bleed for a beat before the lookbook takes over.
-        const opening = clamp(progress / (mobile ? 0.62 : 0.63));
-        // The plate comes off early in the opening rather than at the end: both pinned sections sit
-        // on near-black, so the bar reads the same either way and the swap is finished well before
-        // the frame slides up under it.
-        if (coversChrome(rect) && opening > 0.32) immersive = true;
-        film.style.setProperty("--film-p", `${progress}`);
-        film.style.setProperty("--film-mask-x", `${(1 - opening) * (mobile ? 12 : 28)}%`);
-        film.style.setProperty("--film-mask-y", `${(1 - opening) * (mobile ? 18 : 12)}%`);
-        film.style.setProperty("--film-radius", `${(1 - opening) * (mobile ? 24 : 48)}px`);
-      }
-      document.documentElement.classList.toggle("header-immersive", immersive);
+      const mobile = width < 768;
+      const narrow = width <= 900;
+      // ---- reads ----
+      const scrollY = window.scrollY;
+      const docRange = Math.max(1, root.scrollHeight - viewport);
+      const heroRect = hero?.getBoundingClientRect();
+      const heroRange = hero ? Math.max(1, hero.offsetHeight - viewport) : 1;
+      const filmRect = film?.getBoundingClientRect();
+      const filmRange = film ? Math.max(1, film.offsetHeight - viewport) : 1;
       layers.forEach((layer) => {
         const rect = layer.element.getBoundingClientRect();
         const offset = (viewport / 2 - (rect.top + rect.height / 2)) / viewport;
@@ -192,10 +177,9 @@ export default function MimiExperience() {
       // top edge crosses the fold and is settled by the time the element reaches
       // the lower middle — a short window, so the content is readable early
       // rather than still assembling halfway up the screen.
-      scrubbedReveals.forEach((element) => {
-        const top = element.getBoundingClientRect().top;
-        const progress = reducedMotion ? 1 : smoothstep(viewport * 1.0, viewport * 0.6, top);
-        element.style.setProperty("--reveal-p", progress.toFixed(4));
+      scrubbedReveals.forEach((item) => {
+        const top = item.element.getBoundingClientRect().top;
+        item.progress = reducedMotion ? 1 : smoothstep(viewport * 1.0, viewport * 0.6, top);
       });
       stackCards.forEach((card, index) => {
         const nextCard = stackCards[index + 1];
@@ -204,51 +188,134 @@ export default function MimiExperience() {
         const nextTop = nextCard.element.getBoundingClientRect().top;
         card.target = clamp((nextCard.stickyTop + travel - nextTop) / travel);
       });
+      // ---- writes ----
+      setRoot("--page-progress", (scrollY / docRange).toFixed(4));
+      root.classList.toggle("header-solid", scrollY > viewport * 1.08);
+      let immersive = false;
+      if (hero && heroRect) {
+        const progress = clamp(-heroRect.top / heroRange);
+        const expansion = smoothstep(0, 0.72, progress);
+        // Compact widths never letterbox the hero film, so it is full-bleed the whole pin.
+        if (coversChrome(heroRect) && (narrow || expansion > 0.45)) immersive = true;
+        // Staged exit: the eyebrow and lower copy clear out first, then the headline lifts word by word
+        // behind each line's mask (--hero-word-p drives the stagger in CSS). Everything is gone by ~60%
+        // of the pin, so the film finishes the section alone instead of the type hanging on to the end.
+        const tail = smoothstep(0.03, 0.4, progress);
+        const words = smoothstep(0.1, 0.8, progress);
+        setHero("--hero-p", `${progress}`);
+        // Compact widths (matching the 900px hero breakpoint) keep the film full-bleed — no letterboxed
+        // frame to expand — so the scroll drives the type instead: opposing line drift and a slow push-in.
+        setHero("--hero-scale", `${narrow ? 1.03 + progress * 0.09 : 1.12 - expansion * 0.12}`);
+        // The block drifts slower than the film (parallax lag); the word lift supplies the acceleration.
+        setHero("--hero-copy-y", `${progress * (narrow ? -96 : -120)}px`);
+        setHero("--hero-copy-opacity", `${1 - smoothstep(0.68, 0.8, progress)}`);
+        setHero("--hero-copy-events", tail > 0.85 ? "none" : "auto");
+        setHero("--hero-tail-p", `${tail}`);
+        setHero("--hero-word-p", `${words}`);
+        // Phones never letterbox the film (the stylesheet drops the clip-path there entirely), so
+        // these stay constant on compact widths and the writer skips them after the first frame.
+        setHero("--hero-clip-left", `${narrow ? 0 : (1 - expansion) * 34}vw`);
+        setHero("--hero-clip-right", `${narrow ? 0 : (1 - expansion) * 4}vw`);
+        setHero("--hero-clip-y", `${narrow ? 0 : (1 - expansion) * 9}vh`);
+        setHero("--hero-radius", `${narrow ? 0 : (1 - expansion) * 34}px`);
+        setHero("--hero-line-one-x", `${progress * (narrow ? -40 : -78)}px`);
+        setHero("--hero-line-two-x", `${progress * (narrow ? 56 : 100)}px`);
+        setHero("--hero-line-two-y", `${progress * (narrow ? 14 : 0)}px`);
+        setHero("--hero-frame-opacity", `${1 - smoothstep(0.05, 0.46, progress)}`);
+      }
+      if (film && filmRect) {
+        const progress = clamp(-filmRect.top / filmRange);
+        // The frame opens over the same scroll distance as the pin used to run for, then the extra
+        // height added on the end holds it full-bleed for a beat before the lookbook takes over.
+        const opening = clamp(progress / (mobile ? 0.62 : 0.63));
+        // The plate comes off early in the opening rather than at the end: both pinned sections sit
+        // on near-black, so the bar reads the same either way and the swap is finished well before
+        // the frame slides up under it.
+        if (coversChrome(filmRect) && opening > 0.32) immersive = true;
+        setFilm("--film-p", `${progress}`);
+        setFilm("--film-mask-x", `${(1 - opening) * (mobile ? 12 : 28)}%`);
+        setFilm("--film-mask-y", `${(1 - opening) * (mobile ? 18 : 12)}%`);
+        setFilm("--film-radius", `${(1 - opening) * (mobile ? 24 : 48)}px`);
+      }
+      root.classList.toggle("header-immersive", immersive);
+      scrubbedReveals.forEach((item) => item.set("--reveal-p", item.progress.toFixed(4)));
     };
+    // The eased layers: writes only, so it can share a frame with measure() without ever
+    // forcing a flush. Returns whether anything is still settling toward its target.
     const render = () => {
+      const narrow = width <= 900;
       let moving = false;
       layers.forEach((layer) => {
         const delta = layer.target - layer.current;
         layer.current = reducedMotion ? 0 : layer.current + delta * 0.13;
-        layer.element.style.setProperty("--parallax-y", `${layer.current.toFixed(2)}px`);
+        layer.set("--parallax-y", `${layer.current.toFixed(2)}px`);
         if (Math.abs(delta) > 0.08) moving = true;
       });
       zoomLayers.forEach((layer) => {
         const delta = layer.target - layer.current;
         layer.current = reducedMotion ? 1 : layer.current + delta * 0.11;
-        layer.element.style.setProperty("--scroll-scale", layer.current.toFixed(4));
+        layer.set("--scroll-scale", layer.current.toFixed(4));
         if (Math.abs(delta) > 0.0005) moving = true;
       });
       stackCards.forEach((card) => {
         const delta = card.target - card.current;
         card.current = reducedMotion ? 0 : card.current + delta * 0.14;
-        card.element.style.setProperty("--stack-scale", `${1 - card.current * (window.innerWidth <= 900 ? 0.03 : 0.04)}`);
-        card.element.style.setProperty("--stack-dim", `${card.current * 0.12}`);
+        card.set("--stack-scale", (1 - card.current * (narrow ? 0.03 : 0.04)).toFixed(4));
+        card.set("--stack-dim", (card.current * 0.12).toFixed(4));
         if (Math.abs(delta) > 0.002) moving = true;
       });
-      frame = moving ? requestAnimationFrame(render) : 0;
+      // Reduced motion pins every layer at rest, so there is nothing to keep settling.
+      return moving && !reducedMotion;
     };
-    const update = () => { measure(); if (!frame) frame = requestAnimationFrame(render); };
-    const onResize = () => { measureStackTops(); update(); };
+    // The scroll listener only flags the frame; all work happens in one requestAnimationFrame
+    // per frame, so a burst of scroll events never measures the page more than once.
+    const tick = () => {
+      frame = 0;
+      if (dirty) { dirty = false; measure(); }
+      if (render()) frame = requestAnimationFrame(tick);
+    };
+    const schedule = () => { dirty = true; if (!frame) frame = requestAnimationFrame(tick); };
+    const onResize = () => {
+      viewport = window.innerHeight;
+      width = window.innerWidth;
+      measureStackTops();
+      schedule();
+    };
     measureStackTops();
     measure();
     if (!reducedMotion) {
-      layers.forEach((layer) => { layer.current = layer.target; layer.element.style.setProperty("--parallax-y", `${layer.current.toFixed(2)}px`); });
-      zoomLayers.forEach((layer) => { layer.current = layer.target; layer.element.style.setProperty("--scroll-scale", layer.current.toFixed(4)); });
-      stackCards.forEach((card) => {
-        card.current = card.target;
-        card.element.style.setProperty("--stack-scale", `${1 - card.current * (window.innerWidth <= 900 ? 0.03 : 0.04)}`);
-        card.element.style.setProperty("--stack-dim", `${card.current * 0.12}`);
-      });
+      layers.forEach((layer) => { layer.current = layer.target; });
+      zoomLayers.forEach((layer) => { layer.current = layer.target; });
+      stackCards.forEach((card) => { card.current = card.target; });
     }
-    window.addEventListener("scroll", update, { passive: true });
+    render();
+    window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", onResize);
     return () => {
-      window.removeEventListener("scroll", update);
+      window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", onResize);
-      document.documentElement.classList.remove("header-solid", "header-immersive");
+      root.classList.remove("header-solid", "header-immersive");
       if (frame) cancelAnimationFrame(frame);
     };
+  }, []);
+
+  // A film that has scrolled out of view still decodes every frame on Android (WebKit already
+  // pauses hidden autoplay video; Chrome does not), and that decode competes with the
+  // manifesto's scroll work directly under the hero. Pause it off-screen and pick it back up
+  // on the way in — unless the visitor paused it themselves.
+  useEffect(() => {
+    const videos = Array.from(document.querySelectorAll<HTMLVideoElement>("video[autoplay]"));
+    if (videos.length === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target as HTMLVideoElement;
+        if (!entry.isIntersecting) { video.pause(); return; }
+        if (video === runwayRef.current && userPausedRef.current) return;
+        video.play().catch(() => {});
+      });
+    }, { rootMargin: "20% 0px" });
+    videos.forEach((video) => observer.observe(video));
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -326,7 +393,8 @@ export default function MimiExperience() {
 
   const toggleVideo = async () => {
     const video = runwayRef.current; if (!video) return;
-    if (video.paused) { await video.play(); setPlaying(true); } else { video.pause(); setPlaying(false); }
+    if (video.paused) { userPausedRef.current = false; await video.play(); setPlaying(true); }
+    else { userPausedRef.current = true; video.pause(); setPlaying(false); }
   };
   const toggleSound = () => {
     const video = runwayRef.current; if (!video) return;
