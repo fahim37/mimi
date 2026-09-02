@@ -287,6 +287,27 @@ video {
   mix-blend-mode: normal;
 }
 
+/* While a film is opened out to the edges of the screen, the solid bar reads as a black slab
+   laid across it. The plate and the blur come off so only the mark and the icons sit on the
+   footage; a soft shadow carries them where the frame runs light. */
+.header-immersive .site-header:not(.menu-is-open) .site-header__bar {
+  background: transparent;
+  color: white;
+  backdrop-filter: none;
+  mix-blend-mode: normal;
+  text-shadow: 0 1px 14px rgb(0 0 0 / 55%);
+}
+
+.header-immersive .site-header:not(.menu-is-open) .site-header__actions {
+  filter: drop-shadow(0 1px 10px rgb(0 0 0 / 55%));
+}
+
+/* The mark is already inverted to white, so the shadow has to be appended to that filter
+   rather than replacing it. */
+.header-immersive .site-header:not(.menu-is-open) .brand img {
+  filter: invert(1) drop-shadow(0 1px 10px rgb(0 0 0 / 55%));
+}
+
 .site-header.menu-is-open .site-header__bar {
   background: transparent;
   color: var(--ink);
@@ -468,6 +489,9 @@ video {
   --hero-line-two-x: 0px;
   --hero-line-two-y: 0px;
   --hero-frame-opacity: 1;
+  --hero-tail-p: 0;
+  --hero-word-p: 0;
+  --hero-copy-events: auto;
   position: relative;
   height: 215svh;
   background: #0c0a09;
@@ -477,7 +501,11 @@ video {
 .hero__stage {
   position: sticky;
   top: 0;
+  /* svh is the viewport at its *smallest* (browser toolbars showing). A pin sized that way
+     comes up short the moment the toolbar retracts on a phone, and the section background
+     shows through as a black strip under the film — so track the live viewport instead. */
   height: 100svh;
+  height: 100dvh;
   min-height: 620px;
   overflow: hidden;
   isolation: isolate;
@@ -555,6 +583,7 @@ video {
   left: clamp(24px, 4.6vw, 72px);
   width: min(1180px, 88vw);
   opacity: var(--hero-copy-opacity);
+  pointer-events: var(--hero-copy-events);
   transform: translate3d(0, var(--hero-copy-y), 0);
   will-change: transform, opacity;
 }
@@ -570,10 +599,24 @@ video {
   text-transform: uppercase;
 }
 
+/* The intro animation fills opacity/transform on the <p> itself, so the scroll-out uses the
+   independent `translate` property here and fades the children instead. */
+.hero__eyebrow {
+  translate: 0 calc(var(--hero-tail-p) * -26px);
+}
+
+.hero__eyebrow i {
+  font-style: normal;
+  opacity: calc(1 - var(--hero-tail-p));
+}
+
 .hero__eyebrow span {
   width: 28px;
   height: 1px;
   background: currentcolor;
+  opacity: calc(1 - var(--hero-tail-p));
+  scale: calc(1 - var(--hero-tail-p)) 1;
+  transform-origin: left center;
 }
 
 .hero h1 {
@@ -612,6 +655,33 @@ video {
   translate: var(--hero-line-two-x) var(--hero-line-two-y);
 }
 
+/* Scroll-out: each word rides its own slice of --hero-word-p (its delay plus a 0.44 span) and lifts
+   out through the line's overflow mask, so the headline peels away in reading order rather than the
+   whole block dissolving in place. Independent translate/rotate/scale keep the intro animations
+   on `transform` untouched, and keep the whole thing on the compositor. */
+.hero__word {
+  --word-p: clamp(0, calc((var(--hero-word-p) - var(--word-delay, 0)) / 0.44), 1);
+  display: inline-block;
+  opacity: clamp(0, calc((0.88 - var(--word-p)) * 3.6), 1);
+  rotate: calc(var(--word-p) * var(--word-rotate, 0deg));
+  scale: calc(1 - var(--word-p) * 0.05);
+  translate: calc(var(--word-p) * var(--word-x, 0em)) calc(var(--word-p) * -1.9em);
+  will-change: translate, rotate, opacity;
+}
+
+.hero__line--one .hero__word {
+  transform-origin: left bottom;
+}
+
+.hero__line--two .hero__word {
+  transform-origin: right bottom;
+}
+
+.hero__line--one .hero__word:nth-of-type(1) { --word-delay: 0; --word-x: -0.05em; --word-rotate: -3.2deg; }
+.hero__line--one .hero__word:nth-of-type(2) { --word-delay: 0.15; --word-x: -0.02em; --word-rotate: -2.2deg; }
+.hero__line--two .hero__word:nth-of-type(1) { --word-delay: 0.31; --word-x: 0.03em; --word-rotate: 2.4deg; }
+.hero__line--two .hero__word:nth-of-type(2) { --word-delay: 0.46; --word-x: 0.06em; --word-rotate: 3.4deg; }
+
 .hero h1 em {
   font-weight: 400;
 }
@@ -622,6 +692,13 @@ video {
   align-items: center;
   justify-content: space-between;
   margin: 45px 0 0 9vw;
+  /* Counter-beat: this sinks as the headline lifts. Fade sits on the children because the intro
+     animation fills opacity on .hero__lower itself. */
+  translate: 0 calc(var(--hero-tail-p) * 42px);
+}
+
+.hero__lower > * {
+  opacity: calc(1 - var(--hero-tail-p));
 }
 
 .hero__lower p {
@@ -762,8 +839,13 @@ video {
   text-transform: uppercase;
 }
 
+.hero__meta span {
+  opacity: var(--hero-frame-opacity);
+  transition: opacity 120ms linear;
+}
+
 .hero__meta span:last-child {
-  opacity: 0.55;
+  opacity: calc(var(--hero-frame-opacity) * 0.55);
 }
 
 .video-controls {
@@ -815,12 +897,34 @@ video {
   background: var(--paper);
 }
 
+/* The masked children carry the entrance, so the block itself opts out of the
+   default .reveal fade — a fade under a mask wipe only makes both look soft. */
 .manifesto__top {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: start;
-  border-top: 1px solid var(--line);
   padding-top: 20px;
+  opacity: 1;
+  transform: none;
+}
+
+/* Absolute, so the pseudo stays out of the grid's item flow while it draws. */
+.manifesto__top::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--line);
+  content: "";
+  scale: 0 1;
+  transform-origin: left center;
+  transition: scale 1100ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.manifesto__top.is-visible::before {
+  scale: 1 1;
 }
 
 .manifesto__top p {
@@ -832,6 +936,37 @@ video {
   letter-spacing: -0.035em;
   line-height: 1.03;
 }
+
+/* Shared line/word mask: the padding + matching negative margin opens room for
+   ascenders and italic overhang without moving anything in layout. */
+.manifesto__mask {
+  display: inline-block;
+  overflow: hidden;
+  padding: 0.12em 0.06em 0.26em;
+  margin: -0.12em -0.06em -0.26em;
+  vertical-align: bottom;
+}
+
+.manifesto__mask--line {
+  display: block;
+}
+
+.manifesto__mask > span {
+  display: inline-block;
+  rotate: 2.6deg;
+  transform-origin: left bottom;
+  translate: 0 118%;
+  transition: translate 1150ms cubic-bezier(0.16, 1, 0.3, 1), rotate 1150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.is-visible .manifesto__mask > span,
+.manifesto__mask.is-visible > span {
+  rotate: 0deg;
+  translate: 0 0;
+}
+
+.manifesto__top p .manifesto__mask:nth-of-type(1) > span { transition-delay: 130ms; }
+.manifesto__top p .manifesto__mask:nth-of-type(2) > span { transition-delay: 230ms; }
 
 .manifesto__composition {
   position: relative;
@@ -852,22 +987,53 @@ video {
   letter-spacing: -0.075em;
   line-height: 0.77;
   text-align: center;
-  transform: translate(-50%, 44px);
-}
-
-.manifesto__composition h2.is-visible {
+  /* Centring only — the words do the moving, and --parallax-y rides on `translate`. */
+  opacity: 1;
   transform: translate(-50%, 0);
 }
+
+/* Specificity guard: .reveal.is-visible (0,2,0) outranks the element rule above and
+   would drop the -50% centring once the block reveals. Restate it at class weight. */
+.manifesto__composition h2.reveal {
+  transform: translate(-50%, 0);
+}
+
+.manifesto__composition h2 .manifesto__mask:nth-of-type(2) > span { transition-delay: 100ms; }
+.manifesto__composition h2 .manifesto__mask:nth-of-type(3) > span { transition-delay: 210ms; }
+.manifesto__composition h2 .manifesto__mask:nth-of-type(4) > span { transition-delay: 320ms; }
 
 .manifesto__composition h2 em {
   padding-left: 0.38em;
   font-weight: 400;
 }
 
+/* Frame and image are separate boxes: the wipe runs on the inner one so the
+   clip never eats the frame's shadow, which fades up alongside it. */
 .manifesto__image {
   position: absolute;
   overflow: hidden;
+  box-shadow: 0 8px 22px rgb(31 24 18 / 0%);
+  opacity: 1;
+  scale: 1.07;
+  transform: none;
+  transition: scale 1500ms cubic-bezier(0.16, 1, 0.3, 1), rotate 1500ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 1300ms ease 200ms;
+}
+
+.manifesto__image.is-visible {
   box-shadow: 0 25px 75px rgb(31 24 18 / 13%);
+  scale: 1;
+}
+
+.manifesto__image-inner {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: inset(0 0 100% 0);
+  transition: clip-path 1350ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.manifesto__image.is-visible .manifesto__image-inner {
+  clip-path: inset(0 0 0 0);
 }
 
 .manifesto__image img {
@@ -879,7 +1045,11 @@ video {
   left: 3vw;
   width: min(22vw, 320px);
   aspect-ratio: 0.75;
-  transform: rotate(-3deg);
+  rotate: -8deg;
+}
+
+.manifesto__image--left.is-visible {
+  rotate: -3deg;
 }
 
 .manifesto__image--right {
@@ -887,7 +1057,11 @@ video {
   bottom: 36px;
   width: min(19vw, 275px);
   aspect-ratio: 0.72;
-  transform: rotate(3.5deg);
+  rotate: 9deg;
+}
+
+.manifesto__image--right.is-visible {
+  rotate: 3.5deg;
 }
 
 .manifesto__note {
@@ -895,9 +1069,27 @@ video {
   bottom: 30px;
   left: 13vw;
   width: min(320px, 25vw);
+  padding-left: 22px;
   margin: 0;
   font-size: 14px;
   line-height: 1.6;
+}
+
+.manifesto__note::before {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 1px;
+  background: var(--line);
+  content: "";
+  scale: 1 0;
+  transform-origin: top center;
+  transition: scale 1000ms cubic-bezier(0.16, 1, 0.3, 1) 220ms;
+}
+
+.manifesto__note.is-visible::before {
+  scale: 1 1;
 }
 
 /* Collection chapters */
@@ -944,7 +1136,14 @@ video {
 }
 
 .chapter-stack {
-  padding: 0 clamp(14px, 2vw, 30px) 18svh;
+  padding: 0 clamp(14px, 2vw, 30px);
+}
+
+/* The run-out after the last card has to be an in-flow child, not padding on the
+   stack: sticky cards are constrained to their container's content box, so the
+   last card only gets a dwell of its own if something below it extends that box. */
+.chapter-stack__tail {
+  height: 18svh;
 }
 
 .chapter-card {
@@ -956,7 +1155,6 @@ video {
   display: grid;
   min-height: calc(100svh - 36px);
   grid-template-columns: 0.72fr 1.28fr;
-  margin-bottom: 13svh;
   overflow: hidden;
   border-radius: 28px;
   color: #181513;
@@ -964,6 +1162,14 @@ video {
   box-shadow: 0 -5px 40px rgb(0 0 0 / 10%);
   transform-origin: center top;
   will-change: scale;
+}
+
+/* The gap between cards lives on the following card's top margin, never on the
+   card's own bottom margin: a sticky box's range is its container's content box
+   shrunk by its OWN margins, so a bottom margin retires that card early and the
+   deck comes apart on the way out instead of leaving as one. */
+.chapter-card + .chapter-card {
+  margin-top: 13svh;
 }
 
 .chapter-card::before {
@@ -994,7 +1200,7 @@ video {
 
 .chapter-card:nth-child(2) { top: 30px; z-index: 2; }
 .chapter-card:nth-child(3) { top: 42px; z-index: 3; }
-.chapter-card:nth-child(4) { top: 54px; z-index: 4; margin-bottom: 0; }
+.chapter-card:nth-child(4) { top: 54px; z-index: 4; }
 .chapter-card--rouge { background: #d35b4a; }
 .chapter-card--plum { background: #6e334d; color: #f8e9e4; }
 .chapter-card--mineral { background: #a9b3bc; }
@@ -1131,6 +1337,7 @@ video {
   position: sticky;
   top: 0;
   height: 100svh;
+  height: 100dvh;
   min-height: 620px;
   overflow: hidden;
 }
@@ -1693,10 +1900,6 @@ video {
     font-size: 8px;
   }
 
-  .hero__eyebrow span {
-    transform-origin: left center;
-  }
-
   .hero h1 {
     font-size: clamp(62px, 17vw, 105px);
     line-height: 0.77;
@@ -1854,12 +2057,10 @@ video {
     width: 100%;
     font-size: clamp(70px, 20vw, 105px);
     line-height: 0.82;
-    transform: translateY(44px);
+    transform: none;
   }
 
-  .manifesto__composition h2.is-visible {
-    transform: translateY(0);
-  }
+  .manifesto__composition h2.reveal { transform: none; }
 
   .manifesto__composition h2 em { padding-left: 0.12em; }
 
@@ -1869,14 +2070,20 @@ video {
     width: 100%;
   }
 
-  .manifesto__image--left { grid-area: 1 / 1; }
+  /* Tighter grid: the tilt settles over a shorter arc so a corner never swings
+     over the neighbouring cell on the way in. */
+  .manifesto__image--left { grid-area: 1 / 1; rotate: -6deg; }
 
-  .manifesto__image--right { grid-area: 3 / 2; }
+  .manifesto__image--right { grid-area: 3 / 2; rotate: 7deg; }
 
+  /* Relative (not static) so the drawn rule can anchor to it — which means the
+     desktop left/bottom offsets have to be cleared, or they'd shift the grid item. */
   .manifesto__note {
-    position: static;
+    position: relative;
+    inset: auto;
     grid-area: 3 / 1;
     width: 100%;
+    padding-left: 16px;
     font-size: 12.5px;
   }
 
@@ -1902,18 +2109,31 @@ video {
     padding-inline: 9px;
   }
 
+  .chapter-stack__tail {
+    height: 24svh;
+  }
+
   .chapter-card {
-    top: 70px;
-    min-height: calc(100svh - 80px);
+    /* Each card pins 10px below the previous one so the card underneath keeps a
+       visible coloured edge at the top of the stack. */
+    top: calc(66px + var(--card-index) * 10px);
+    /* Height shrinks by the same 10px, so every card in the stack still ends at
+       the same point above the bottom edge. */
+    min-height: calc(100svh - 78px - var(--card-index) * 10px);
     grid-template-columns: 1fr;
     grid-template-rows: 33% 67%;
-    margin-bottom: 13svh;
     border-radius: 20px;
+  }
+
+  /* The dwell: a pinned card holds still for this much scroll before the next
+     one starts climbing over it. */
+  .chapter-card + .chapter-card {
+    margin-top: 24svh;
   }
 
   .chapter-card:nth-child(2),
   .chapter-card:nth-child(3),
-  .chapter-card:nth-child(4) { top: 70px; }
+  .chapter-card:nth-child(4) { top: calc(66px + var(--card-index) * 10px); }
 
   .chapter-card__copy {
     display: grid;
@@ -2144,10 +2364,10 @@ video {
   }
 
   .parallax-layer { translate: 0 0 !important; }
-  .hero { height: 100svh; }
+  .hero { height: 100svh; height: 100dvh; }
   .hero__copy { opacity: 1; transform: none; }
   .hero__media { clip-path: none; transform: none; }
-  .film-section { height: 100svh; }
+  .film-section { height: 100svh; height: 100dvh; }
   .film-section__media { clip-path: inset(5% round 24px); }
   .chapter-card { position: relative; top: auto !important; }
   [data-scroll-zoom] > img { scale: 1 !important; }
@@ -5189,5 +5409,889 @@ body.bag-open {
   .pdp-bar__tab svg text,
   .pdp-topbar__chip svg text {
     animation: none !important;
+  }
+}
+
+/* ---- Contact ---- */
+
+.contact {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.contact-hero {
+  position: relative;
+  display: grid;
+  min-height: 100svh;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+  padding: 104px clamp(22px, 4.5vw, 72px) 0;
+  background: #0e0d0c;
+  color: #f0ece2;
+}
+
+/* The shop header is built for paper pages, so it has to flip over this hero. */
+.contact .shop-header {
+  transition: background-color 320ms ease, border-color 320ms ease,
+    backdrop-filter 320ms ease, color 320ms ease;
+}
+
+.contact .shop-header:not(.is-lifted) {
+  color: #f0ece2;
+}
+
+.contact .shop-header__brand img {
+  transition: filter 320ms ease;
+}
+
+.contact .shop-header:not(.is-lifted) .shop-header__brand img {
+  filter: invert(1);
+}
+
+.contact-hero__media {
+  position: absolute;
+  inset: 0;
+  translate: 0 var(--hero-shift, 0px);
+  will-change: translate;
+  animation: contact-media-in 1500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.contact-hero__media img {
+  object-fit: cover;
+  object-position: 50% 28%;
+  scale: var(--hero-scale, 1.06);
+  will-change: scale;
+}
+
+@keyframes contact-media-in {
+  from { opacity: 0; clip-path: inset(16% 14% 22% 14%); }
+  to { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+
+.contact-hero__scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, rgb(14 13 12 / 97%) 3%, rgb(14 13 12 / 66%) 42%, rgb(14 13 12 / 24%) 82%),
+    linear-gradient(to right, rgb(14 13 12 / 80%), rgb(14 13 12 / 8%) 64%);
+}
+
+/* Driven by the scroll handler so the art recedes as the paper section arrives. */
+.contact-hero__scrim::after {
+  position: absolute;
+  inset: 0;
+  background: #0e0d0c;
+  content: "";
+  opacity: var(--hero-veil, 0);
+}
+
+.contact-hero__glow {
+  position: absolute;
+  top: 2%;
+  left: 54%;
+  width: 62vmax;
+  height: 62vmax;
+  background: radial-gradient(circle, rgb(157 46 48 / 38%), rgb(157 46 48 / 0%) 62%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: contact-glow 18s ease-in-out infinite alternate;
+}
+
+@keyframes contact-glow {
+  from { translate: -8% -5%; scale: 0.9; opacity: 0.65; }
+  to { translate: 7% 7%; scale: 1.14; opacity: 1; }
+}
+
+.contact-hero__grain {
+  position: absolute;
+  inset: -70px;
+  background-image:
+    repeating-linear-gradient(112deg, rgb(255 255 255 / 5%) 0 1px, rgb(255 255 255 / 0%) 1px 4px),
+    repeating-linear-gradient(22deg, rgb(0 0 0 / 6%) 0 1px, rgb(0 0 0 / 0%) 1px 5px);
+  opacity: 0.28;
+  pointer-events: none;
+  animation: contact-grain 1100ms steps(4) infinite;
+}
+
+@keyframes contact-grain {
+  0% { translate: 0 0; }
+  25% { translate: -11px 7px; }
+  50% { translate: 8px -9px; }
+  75% { translate: -5px -6px; }
+  100% { translate: 0 0; }
+}
+
+.contact-hero__inner {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 26px;
+  align-content: end;
+  padding-bottom: 40px;
+}
+
+.contact-hero__crumbs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 620;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  animation: pdp-in 700ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both;
+}
+
+.contact-hero__crumbs a,
+.contact-hero__crumbs i {
+  opacity: 0.55;
+  transition: opacity 240ms ease;
+}
+
+.contact-hero__crumbs i {
+  font-style: normal;
+  opacity: 0.3;
+}
+
+.contact-hero__crumbs a:hover {
+  opacity: 1;
+}
+
+.contact-hero__title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(74px, 14.5vw, 232px);
+  font-weight: 400;
+  letter-spacing: -0.062em;
+  line-height: 0.84;
+}
+
+.contact-hero__line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.06em;
+}
+
+.contact-hero__line i {
+  display: block;
+  font-style: normal;
+  translate: 0 112%;
+  animation: contact-rise 1150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 120ms + 280ms);
+}
+
+@keyframes contact-rise {
+  to { translate: 0 0; }
+}
+
+.contact-hero__title em {
+  color: #b86b70;
+  font-weight: 400;
+}
+
+.contact-hero__lower {
+  display: grid;
+  gap: 34px;
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.contact-hero__lede {
+  max-width: 46ch;
+  margin: 0;
+  color: rgb(240 236 226 / 76%);
+  font-size: clamp(14px, 1.25vw, 17px);
+  line-height: 1.62;
+  animation: pdp-in 900ms cubic-bezier(0.16, 1, 0.3, 1) 640ms both;
+}
+
+.contact-hero__facts {
+  display: flex;
+  gap: clamp(24px, 3vw, 56px);
+  margin: 0;
+  animation: pdp-in 900ms cubic-bezier(0.16, 1, 0.3, 1) 740ms both;
+}
+
+.contact-hero__facts dt {
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.contact-hero__facts dd {
+  margin: 9px 0 0;
+  font-family: var(--serif);
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+
+.contact-hero__foot {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 24px;
+  border-top: 1px solid rgb(255 255 255 / 18%);
+  animation: pdp-in 900ms cubic-bezier(0.16, 1, 0.3, 1) 840ms both;
+}
+
+.contact-hero__clock {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  color: rgb(240 236 226 / 62%);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.contact-hero__clock i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #9d2e30;
+  animation: contact-pulse 1900ms ease-in-out infinite;
+}
+
+@keyframes contact-pulse {
+  0%, 100% { opacity: 0.35; scale: 0.75; }
+  50% { opacity: 1; scale: 1.25; }
+}
+
+.contact-hero__clock b {
+  color: #f0ece2;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+}
+
+.contact-hero__cue {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  translate: var(--pull-x, 0px) var(--pull-y, 0px);
+  transition: translate 460ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.contact-hero__cue i {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 42%);
+  border-radius: 50%;
+  transition: background-color 320ms ease, border-color 320ms ease, color 320ms ease;
+}
+
+.contact-hero__cue i .arrow {
+  animation: contact-bob 1900ms ease-in-out infinite;
+}
+
+@keyframes contact-bob {
+  0%, 100% { translate: 0 -3px; }
+  50% { translate: 0 4px; }
+}
+
+.contact-hero__cue:hover i {
+  border-color: #f0ece2;
+  background: #f0ece2;
+  color: #0e0d0c;
+}
+
+.contact-hero__marquee {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  margin-inline: calc(clamp(22px, 4.5vw, 72px) * -1);
+  padding: 16px 0 18px;
+  border-top: 1px solid rgb(255 255 255 / 14%);
+}
+
+.contact-hero__marquee-track {
+  display: flex;
+  width: max-content;
+  color: rgb(240 236 226 / 24%);
+  font-family: var(--serif);
+  font-size: clamp(26px, 3.4vw, 48px);
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+  animation: contact-marquee 28s linear infinite;
+}
+
+.contact-hero__marquee-track i {
+  padding: 0 0.35em;
+  color: #9d2e30;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-style: normal;
+}
+
+@keyframes contact-marquee {
+  to { translate: -50% 0; }
+}
+
+/* Contact body */
+
+.contact-body {
+  padding-block: clamp(70px, 9vw, 128px) clamp(66px, 8vw, 116px);
+}
+
+.contact-body__layout {
+  display: grid;
+  gap: clamp(38px, 5vw, 84px);
+  align-items: start;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+.contact-form__head {
+  margin-bottom: 46px;
+}
+
+.contact-form__head h2 {
+  margin: 18px 0 0;
+  font-family: var(--serif);
+  font-size: clamp(40px, 5.2vw, 76px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.9;
+}
+
+.contact-form__head h2 em {
+  color: #9d2e30;
+  font-weight: 400;
+}
+
+.contact-form__block {
+  min-inline-size: 0;
+  margin: 0 0 42px;
+  padding: 0;
+  border: 0;
+  transition: opacity 300ms ease;
+}
+
+.contact-form__block:disabled {
+  opacity: 0.5;
+}
+
+.contact-form__block legend {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.contact-form__block legend i {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.topics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.topic {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  overflow: hidden;
+  padding: 17px 18px;
+  border: 1px solid rgb(18 17 15 / 20%);
+  cursor: pointer;
+  transition: border-color 280ms ease;
+}
+
+/* Staggered in by the parent reveal rather than on mount, so the entrance
+   lines up with the scroll. */
+.contact-form__block .topic,
+.contact-aside .channel {
+  opacity: 0;
+  translate: 0 18px;
+  transition: opacity 620ms ease calc(var(--i) * 80ms),
+    translate 700ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--i) * 80ms),
+    border-color 280ms ease;
+}
+
+.contact-form__block.is-visible .topic,
+.contact-aside.is-visible .channel {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.topic::before {
+  position: absolute;
+  inset: 0;
+  background: rgb(18 17 15 / 5%);
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.topic[data-active]::before {
+  transform: scaleX(1);
+}
+
+.topic > * {
+  position: relative;
+}
+
+.topic:hover {
+  border-color: rgb(18 17 15 / 45%);
+}
+
+.topic[data-active] {
+  border-color: var(--ink);
+}
+
+.topic input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.topic__mark {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  place-items: center;
+  border: 1px solid rgb(18 17 15 / 40%);
+  border-radius: 50%;
+}
+
+.topic__mark::after {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ink);
+  content: "";
+  scale: 0;
+  transition: scale 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.topic[data-active] .topic__mark::after {
+  scale: 1;
+}
+
+.topic:focus-within .topic__mark {
+  outline: 1px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.topic__text {
+  display: grid;
+  gap: 4px;
+}
+
+.topic__text b {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.topic__text i {
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+
+.contact-form__grid {
+  display: grid;
+  gap: 24px 20px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.contact-form__label-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.contact-form__count {
+  font-size: 9px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+  opacity: 0.4;
+  transition: color 260ms ease, opacity 260ms ease;
+}
+
+.contact-form__count[data-near] {
+  color: #9d2e30;
+  opacity: 1;
+}
+
+.contact-form__gauge {
+  position: absolute;
+  right: 0;
+  bottom: -2px;
+  left: 0;
+  height: 2px;
+  background: #9d2e30;
+  opacity: 0.75;
+  transform: scaleX(var(--fill, 0));
+  transform-origin: left;
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.contact-form__submit {
+  display: flex;
+  gap: 26px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.contact-form__send {
+  min-width: 258px;
+  padding: 22px 32px;
+  translate: var(--pull-x, 0px) var(--pull-y, 0px);
+  transition: color 320ms ease, border-color 320ms ease, opacity 240ms ease,
+    translate 460ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.contact-form__note {
+  max-width: 32ch;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  opacity: 0.5;
+}
+
+/* Direct channels */
+
+.contact-aside__inner {
+  position: sticky;
+  top: 96px;
+  padding: clamp(28px, 3vw, 40px) clamp(22px, 2.6vw, 32px);
+  background: var(--paper-deep);
+}
+
+.contact-aside__title {
+  margin: 0 0 28px;
+  font-family: var(--serif);
+  font-size: clamp(28px, 2.8vw, 40px);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 0.96;
+}
+
+.contact-aside__title em {
+  color: #9d2e30;
+  font-weight: 400;
+}
+
+.contact-aside__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.channel {
+  border-top: 1px solid rgb(18 17 15 / 16%);
+}
+
+.channel:last-child {
+  border-bottom: 1px solid rgb(18 17 15 / 16%);
+}
+
+.channel__body {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  overflow: hidden;
+  padding: 17px 6px;
+}
+
+.channel__body::before {
+  position: absolute;
+  inset: 0;
+  background: rgb(18 17 15 / 6%);
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+a.channel__body:hover::before {
+  transform: scaleX(1);
+}
+
+.channel__body > * {
+  position: relative;
+}
+
+.channel__body small {
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  opacity: 0.4;
+}
+
+.channel__text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+
+.channel__text i {
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.channel__text b {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.channel__text em {
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: 0.03em;
+  opacity: 0.5;
+}
+
+.channel .arrow {
+  width: 18px;
+  height: 18px;
+  opacity: 0.35;
+  transition: transform 320ms ease, opacity 280ms ease;
+}
+
+a.channel__body:hover .arrow {
+  transform: translateX(5px);
+  opacity: 1;
+}
+
+.contact-aside__hours {
+  padding-top: 26px;
+}
+
+.contact-aside__hours .kicker {
+  opacity: 0.45;
+}
+
+.contact-aside__hours p {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin: 15px 0 0;
+  font-size: 12px;
+}
+
+.contact-aside__hours p span {
+  opacity: 0.6;
+}
+
+.contact-aside__hours p b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sent confirmation */
+
+.contact-sent {
+  display: grid;
+  justify-items: start;
+  padding-bottom: 12px;
+}
+
+.contact-sent > * {
+  animation: pdp-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.contact-sent > *:nth-child(2) { animation-delay: 110ms; }
+.contact-sent > *:nth-child(3) { animation-delay: 180ms; }
+.contact-sent > *:nth-child(4) { animation-delay: 250ms; }
+.contact-sent > *:nth-child(5) { animation-delay: 330ms; }
+.contact-sent > *:nth-child(6) { animation-delay: 410ms; }
+
+.contact-sent__mark svg {
+  width: 68px;
+  height: 68px;
+}
+
+.contact-sent__title {
+  margin: 14px 0 0;
+  font-family: var(--serif);
+  font-size: clamp(42px, 5.4vw, 76px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.9;
+}
+
+.contact-sent__title em {
+  color: #9d2e30;
+  font-weight: 400;
+}
+
+.contact-sent__lede {
+  max-width: 44ch;
+  margin: 22px 0 0;
+  font-size: 14px;
+  line-height: 1.65;
+  opacity: 0.68;
+}
+
+.contact-sent__meta {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 16px clamp(28px, 4vw, 64px);
+  margin: 36px 0 0;
+  padding: 26px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.contact-sent__meta dt {
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.contact-sent__meta dd {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.contact-sent__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 34px;
+}
+
+.contact-sent__actions .btn {
+  padding: 19px 32px;
+}
+
+.contact-sent__actions .btn--fill {
+  translate: var(--pull-x, 0px) var(--pull-y, 0px);
+  transition: color 320ms ease, border-color 320ms ease,
+    translate 460ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 1100px) {
+  .contact-body__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-aside__inner {
+    position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  .contact-hero {
+    min-height: 94svh;
+    padding-top: 86px;
+  }
+
+  .contact-hero__lower {
+    gap: 26px;
+    grid-template-columns: 1fr;
+  }
+
+  .contact-hero__facts {
+    flex-wrap: wrap;
+    gap: 18px 32px;
+  }
+
+  .contact-hero__foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .contact-hero__cue {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 700px) {
+  .topics,
+  .contact-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-form__submit {
+    gap: 20px;
+  }
+
+  .contact-form__send,
+  .contact-sent__actions .btn {
+    width: 100%;
+  }
+
+  .contact-form__note {
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-hero__media,
+  .contact-hero__glow,
+  .contact-hero__grain,
+  .contact-hero__crumbs,
+  .contact-hero__line i,
+  .contact-hero__lede,
+  .contact-hero__facts,
+  .contact-hero__foot,
+  .contact-hero__clock i,
+  .contact-hero__cue i .arrow,
+  .contact-hero__marquee-track,
+  .contact-sent > *,
+  .contact-sent__mark circle,
+  .contact-sent__mark path {
+    animation: none !important;
+  }
+
+  .contact-hero__line i {
+    translate: 0 0;
+  }
+
+  .contact-form__block .topic,
+  .contact-aside .channel {
+    opacity: 1;
+    translate: 0 0;
+    transition: none;
   }
 }

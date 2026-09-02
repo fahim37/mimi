@@ -25,6 +25,7 @@ export default function ShopHeader() {
         <Link href="/#lookbook">Shop</Link>
         <Link href="/#collection">Collection</Link>
         <Link href="/#story">Our story</Link>
+        <Link href="/contact">Contact</Link>
       </nav>
 
       <div className="shop-header__actions">

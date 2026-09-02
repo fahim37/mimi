@@ -7,17 +7,12 @@ export default function ShopFooter() {
         <p>
           Ready for your<br />Mimi moment?
         </p>
-        <a
-          href="https://www.instagram.com/thebrand_mimi/"
-          target="_blank"
-          rel="noreferrer"
-          data-cursor="Hello"
-        >
+        <Link href="/contact" data-cursor="Hello">
           Let&apos;s talk
           <svg className="arrow" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 12h15M13 6l6 6-6 6" />
           </svg>
-        </a>
+        </Link>
       </div>
 
       <div className="shop-footer__word" aria-hidden="true">MIMI</div>

@@ -98,8 +98,15 @@ export default function MimiExperience() {
       element, current: 1.025, target: 1.025,
     }));
     const stackCards = Array.from(document.querySelectorAll<HTMLElement>("[data-stack-card]")).map((element) => ({
-      element, current: 0, target: 0,
+      element, current: 0, target: 0, stickyTop: 0,
     }));
+    // Each card pins at its own sticky offset (staggered on mobile so the card below keeps a
+    // visible edge), so read the resolved value instead of hard-coding the breakpoint here.
+    const measureStackTops = () => {
+      stackCards.forEach((card) => {
+        card.stickyTop = Number.parseFloat(window.getComputedStyle(card.element).top) || 0;
+      });
+    };
     let frame = 0;
     const clamp = (value: number) => Math.min(1, Math.max(0, value));
     const smoothstep = (start: number, end: number, value: number) => {
@@ -113,25 +120,41 @@ export default function MimiExperience() {
       const docRange = Math.max(1, document.documentElement.scrollHeight - viewport);
       document.documentElement.style.setProperty("--page-progress", `${window.scrollY / docRange}`);
       document.documentElement.classList.toggle("header-solid", window.scrollY > viewport * 1.08);
+      // A film opened out to the edges of the screen shouldn't have the solid header parked on
+      // it as a black slab. True while a pinned panel still covers the strip the bar sits in —
+      // it keeps covering it as the section leaves, so the test is the bottom edge, not the
+      // whole viewport.
+      const coversChrome = (box: DOMRect) => box.top <= 1 && box.bottom >= 88;
+      let immersive = false;
       const hero = heroRef.current;
       if (hero) {
         const rect = hero.getBoundingClientRect();
         const progress = clamp(-rect.top / Math.max(1, hero.offsetHeight - viewport));
         const expansion = smoothstep(0, 0.72, progress);
-        const exit = smoothstep(0.42, 0.94, progress);
+        // Compact widths never letterbox the hero film, so it is full-bleed the whole pin.
+        if (coversChrome(rect) && (narrow || expansion > 0.8)) immersive = true;
+        // Staged exit: the eyebrow and lower copy clear out first, then the headline lifts word by word
+        // behind each line's mask (--hero-word-p drives the stagger in CSS). Everything is gone by ~60%
+        // of the pin, so the film finishes the section alone instead of the type hanging on to the end.
+        const tail = smoothstep(0.03, 0.4, progress);
+        const words = smoothstep(0.1, 0.8, progress);
         hero.style.setProperty("--hero-p", `${progress}`);
         // Compact widths (matching the 900px hero breakpoint) keep the film full-bleed — no letterboxed
         // frame to expand — so the scroll drives the type instead: opposing line drift and a slow push-in.
         hero.style.setProperty("--hero-scale", `${narrow ? 1.03 + progress * 0.09 : 1.12 - expansion * 0.12}`);
-        hero.style.setProperty("--hero-copy-y", `${progress * (narrow ? -104 : -92)}px`);
-        hero.style.setProperty("--hero-copy-opacity", `${1 - exit * (narrow ? 0.88 : 0.8)}`);
+        // The block drifts slower than the film (parallax lag); the word lift supplies the acceleration.
+        hero.style.setProperty("--hero-copy-y", `${progress * (narrow ? -96 : -120)}px`);
+        hero.style.setProperty("--hero-copy-opacity", `${1 - smoothstep(0.68, 0.8, progress)}`);
+        hero.style.setProperty("--hero-copy-events", tail > 0.85 ? "none" : "auto");
+        hero.style.setProperty("--hero-tail-p", `${tail}`);
+        hero.style.setProperty("--hero-word-p", `${words}`);
         hero.style.setProperty("--hero-clip-left", `${narrow ? 0 : (1 - expansion) * 34}vw`);
         hero.style.setProperty("--hero-clip-right", `${narrow ? 0 : (1 - expansion) * 4}vw`);
         hero.style.setProperty("--hero-clip-y", `${narrow ? 0 : (1 - expansion) * 9}vh`);
         hero.style.setProperty("--hero-radius", `${narrow ? 0 : (1 - expansion) * 34}px`);
-        hero.style.setProperty("--hero-line-one-x", `${progress * (narrow ? -34 : -70)}px`);
-        hero.style.setProperty("--hero-line-two-x", `${progress * (narrow ? 46 : 88)}px`);
-        hero.style.setProperty("--hero-line-two-y", `${progress * (narrow ? 16 : 0)}px`);
+        hero.style.setProperty("--hero-line-one-x", `${progress * (narrow ? -40 : -78)}px`);
+        hero.style.setProperty("--hero-line-two-x", `${progress * (narrow ? 56 : 100)}px`);
+        hero.style.setProperty("--hero-line-two-y", `${progress * (narrow ? 14 : 0)}px`);
         hero.style.setProperty("--hero-frame-opacity", `${1 - smoothstep(0.05, 0.46, progress)}`);
       }
       const film = filmRef.current;
@@ -141,11 +164,13 @@ export default function MimiExperience() {
         // The frame opens over the same scroll distance as the pin used to run for, then the extra
         // height added on the end holds it full-bleed for a beat before the lookbook takes over.
         const opening = clamp(progress / (mobile ? 0.62 : 0.63));
+        if (coversChrome(rect) && opening > 0.8) immersive = true;
         film.style.setProperty("--film-p", `${progress}`);
         film.style.setProperty("--film-mask-x", `${(1 - opening) * (mobile ? 12 : 28)}%`);
         film.style.setProperty("--film-mask-y", `${(1 - opening) * (mobile ? 18 : 12)}%`);
         film.style.setProperty("--film-radius", `${(1 - opening) * (mobile ? 24 : 48)}px`);
       }
+      document.documentElement.classList.toggle("header-immersive", immersive);
       layers.forEach((layer) => {
         const rect = layer.element.getBoundingClientRect();
         const offset = (viewport / 2 - (rect.top + rect.height / 2)) / viewport;
@@ -160,10 +185,9 @@ export default function MimiExperience() {
       stackCards.forEach((card, index) => {
         const nextCard = stackCards[index + 1];
         if (!nextCard) { card.target = 0; return; }
-        const stackTop = mobile ? 70 : 54;
-        const travel = Math.max(220, viewport * (mobile ? 0.38 : 0.5));
+        const travel = Math.max(220, viewport * (narrow ? 0.38 : 0.5));
         const nextTop = nextCard.element.getBoundingClientRect().top;
-        card.target = clamp((stackTop + travel - nextTop) / travel);
+        card.target = clamp((nextCard.stickyTop + travel - nextTop) / travel);
       });
     };
     const render = () => {
@@ -183,29 +207,31 @@ export default function MimiExperience() {
       stackCards.forEach((card) => {
         const delta = card.target - card.current;
         card.current = reducedMotion ? 0 : card.current + delta * 0.14;
-        card.element.style.setProperty("--stack-scale", `${1 - card.current * (window.innerWidth < 768 ? 0.025 : 0.04)}`);
+        card.element.style.setProperty("--stack-scale", `${1 - card.current * (window.innerWidth <= 900 ? 0.03 : 0.04)}`);
         card.element.style.setProperty("--stack-dim", `${card.current * 0.12}`);
         if (Math.abs(delta) > 0.002) moving = true;
       });
       frame = moving ? requestAnimationFrame(render) : 0;
     };
     const update = () => { measure(); if (!frame) frame = requestAnimationFrame(render); };
+    const onResize = () => { measureStackTops(); update(); };
+    measureStackTops();
     measure();
     if (!reducedMotion) {
       layers.forEach((layer) => { layer.current = layer.target; layer.element.style.setProperty("--parallax-y", `${layer.current.toFixed(2)}px`); });
       zoomLayers.forEach((layer) => { layer.current = layer.target; layer.element.style.setProperty("--scroll-scale", layer.current.toFixed(4)); });
       stackCards.forEach((card) => {
         card.current = card.target;
-        card.element.style.setProperty("--stack-scale", `${1 - card.current * (window.innerWidth < 768 ? 0.025 : 0.04)}`);
+        card.element.style.setProperty("--stack-scale", `${1 - card.current * (window.innerWidth <= 900 ? 0.03 : 0.04)}`);
         card.element.style.setProperty("--stack-dim", `${card.current * 0.12}`);
       });
     }
     window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
+    window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      document.documentElement.classList.remove("header-solid");
+      window.removeEventListener("resize", onResize);
+      document.documentElement.classList.remove("header-solid", "header-immersive");
       if (frame) cancelAnimationFrame(frame);
     };
   }, []);
@@ -303,7 +329,7 @@ export default function MimiExperience() {
         <div className="site-header__bar">
           <a className="brand" href="#top" aria-label="Mimi home" data-cursor="Home"><Image src="/media/mimi-logo.png" alt="Mimi" width={804} height={421} priority /></a>
           <nav className="desktop-nav" aria-label="Main navigation">
-            <a href="#collection">Collection</a><a href="#campaign">Campaign</a><a href="#story">Our story</a>
+            <a href="#collection">Collection</a><a href="#campaign">Campaign</a><a href="#story">Our story</a><Link href="/contact">Contact</Link>
           </nav>
           <div className="site-header__actions">
             <BagButton />
@@ -318,9 +344,12 @@ export default function MimiExperience() {
       <div id="mobile-menu" className={`mobile-menu${menuOpen ? " is-open" : ""}`} aria-hidden={!menuOpen}>
         <div className="mobile-menu__wash" />
         <nav aria-label="Mobile navigation">
-          {[["01", "Collection", "#collection"], ["02", "Campaign", "#campaign"], ["03", "Lookbook", "#lookbook"], ["04", "Our story", "#story"]].map(([number, label, href]) => (
-            <a key={href} href={href} onClick={() => setMenuOpen(false)}><small>{number}</small><span>{label}</span><Arrow /></a>
-          ))}
+          {[["01", "Collection", "#collection"], ["02", "Campaign", "#campaign"], ["03", "Lookbook", "#lookbook"], ["04", "Our story", "#story"], ["05", "Contact", "/contact"]].map(([number, label, href]) => {
+            const body = <><small>{number}</small><span>{label}</span><Arrow /></>;
+            return href.startsWith("/")
+              ? <Link key={href} href={href} onClick={() => setMenuOpen(false)}>{body}</Link>
+              : <a key={href} href={href} onClick={() => setMenuOpen(false)}>{body}</a>;
+          })}
         </nav>
         <div className="mobile-menu__foot"><span>Curated style for the conscious wardrobe.</span><a href="https://www.instagram.com/thebrand_mimi/" target="_blank" rel="noreferrer">Instagram ↗</a></div>
       </div>
@@ -337,10 +366,14 @@ export default function MimiExperience() {
               <div className="hero__film-stamp" aria-hidden="true"><span>Runway film</span><b>00:28</b></div>
             </div>
             <div className="hero__copy">
-              <p className="hero__eyebrow"><span /> The new collection · 2026</p>
+              <p className="hero__eyebrow"><span /> <i>The new collection · 2026</i></p>
               <h1 id="hero-title">
-                <span className="hero__line hero__line--one"><i>A study</i></span>
-                <span className="hero__line hero__line--two"><i>in <em>presence.</em></i></span>
+                <span className="hero__line hero__line--one">
+                  <i><span className="hero__word">A</span> <span className="hero__word">study</span></i>
+                </span>
+                <span className="hero__line hero__line--two">
+                  <i><span className="hero__word">in</span> <span className="hero__word"><em>presence.</em></span></i>
+                </span>
               </h1>
               <div className="hero__lower">
                 <p><small>Designed to be felt</small>Curated style for<br />the conscious wardrobe.</p>
@@ -358,11 +391,29 @@ export default function MimiExperience() {
         </section>
 
         <section className="manifesto section-pad" aria-labelledby="manifesto-title">
-          <div className="manifesto__top reveal"><span className="kicker">Mimi, in her own words</span><p>Clothes can whisper<br />and still own the room.</p></div>
+          <div className="manifesto__top reveal">
+            <span className="kicker manifesto__mask manifesto__mask--line"><span>Mimi, in her own words</span></span>
+            <p className="parallax-layer" data-parallax="16">
+              <span className="manifesto__mask manifesto__mask--line"><span>Clothes can whisper</span></span>
+              <span className="manifesto__mask manifesto__mask--line"><span>and still own the room.</span></span>
+            </p>
+          </div>
           <div className="manifesto__composition">
-            <div className="manifesto__image manifesto__image--left parallax-layer" data-parallax="-50" data-scroll-zoom><Image src="/media/rouge-detail.webp" alt="Detail of red striped Mimi tailoring" fill sizes="(max-width: 900px) 46vw, 22vw" /></div>
-            <h2 id="manifesto-title" className="reveal">Not made<br />to <em>blend in.</em></h2>
-            <div className="manifesto__image manifesto__image--right parallax-layer" data-parallax="68" data-scroll-zoom><Image src="/media/olive-portrait.webp" alt="Portrait wearing Mimi olive top" fill sizes="(max-width: 900px) 46vw, 19vw" /></div>
+            <div className="manifesto__image manifesto__image--left parallax-layer reveal" data-parallax="-50">
+              <span className="manifesto__image-inner" data-scroll-zoom>
+                <Image src="/media/rouge-detail.webp" alt="Detail of red striped Mimi tailoring" fill sizes="(max-width: 900px) 46vw, 22vw" />
+              </span>
+            </div>
+            <h2 id="manifesto-title" className="reveal parallax-layer" data-parallax="-30">
+              <span className="manifesto__mask"><span>Not</span></span> <span className="manifesto__mask"><span>made</span></span>
+              <br />
+              <span className="manifesto__mask"><span>to</span></span> <span className="manifesto__mask"><span><em>blend in.</em></span></span>
+            </h2>
+            <div className="manifesto__image manifesto__image--right parallax-layer reveal" data-parallax="68">
+              <span className="manifesto__image-inner" data-scroll-zoom>
+                <Image src="/media/olive-portrait.webp" alt="Portrait wearing Mimi olive top" fill sizes="(max-width: 900px) 46vw, 19vw" />
+              </span>
+            </div>
             <p className="manifesto__note reveal">A wardrobe of fluid silhouettes, decisive colour and ease that never disappears into the background.</p>
           </div>
         </section>
@@ -387,6 +438,7 @@ export default function MimiExperience() {
                 </div>
               </article>
             ))}
+            <div className="chapter-stack__tail" aria-hidden="true" />
           </div>
         </section>
 
@@ -449,7 +501,7 @@ export default function MimiExperience() {
       </main>
 
       <footer className="footer">
-        <div className="footer__top"><p>Ready for your<br />Mimi moment?</p><a href="https://www.instagram.com/thebrand_mimi/" target="_blank" rel="noreferrer" data-cursor="Hello">Let&apos;s talk <Arrow /></a></div>
+        <div className="footer__top"><p>Ready for your<br />Mimi moment?</p><Link href="/contact" data-cursor="Hello">Let&apos;s talk <Arrow /></Link></div>
         <div className="footer__word" aria-hidden="true">MIMI</div>
         <div className="footer__bottom"><span>© {new Date().getFullYear()} Mimi</span><span>Curated style for the conscious wardrobe.</span><a href="#top">Back to top ↑</a></div>
       </footer>
