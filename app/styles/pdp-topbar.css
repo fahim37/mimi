@@ -1,0 +1,184 @@
+/* Mobile product-page chrome: the floating top bar.
+   Imported from ../globals.css — see that file for cascade order. */
+
+/* ============================================================
+   Mobile product-page chrome — floating top bar
+   ============================================================ */
+
+.pdp-topbar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* ---- Product page top bar ---- */
+
+  .pdp .shop-header,
+  .pdp .pdp__crumbs {
+    display: none;
+  }
+
+  .pdp .pdp__main {
+    padding-top: 0;
+  }
+
+  .pdp-topbar {
+    position: fixed;
+    z-index: 340;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: block;
+    border-bottom: 1px solid transparent;
+    padding-top: env(safe-area-inset-top);
+    transition: background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+  }
+
+  .pdp-topbar.is-solid {
+    border-bottom-color: var(--line);
+    background: rgb(239 237 229 / 95%);
+    box-shadow: 0 8px 24px rgb(31 24 18 / 8%);
+    backdrop-filter: blur(14px);
+  }
+
+  .pdp-topbar__row {
+    display: flex;
+    height: 54px;
+    align-items: center;
+    gap: 6px;
+    padding-inline: 12px;
+  }
+
+  .pdp-topbar__chip {
+    position: relative;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    place-items: center;
+    border-radius: 50%;
+    background: rgb(18 17 15 / 42%);
+    color: white;
+    backdrop-filter: blur(8px);
+    transition: background-color 300ms ease, color 300ms ease, transform 140ms ease;
+  }
+
+  .pdp-topbar__chip:active {
+    transform: scale(0.9);
+  }
+
+  .pdp-topbar.is-solid .pdp-topbar__chip {
+    background: transparent;
+    color: var(--ink);
+    backdrop-filter: none;
+  }
+
+  .pdp-topbar__chip svg {
+    display: block;
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentcolor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
+  }
+
+  /* Wordmark in place of a home icon — a pill so it reads over the gallery. */
+  .pdp-topbar__brand {
+    display: grid;
+    height: 38px;
+    flex: 0 0 auto;
+    place-items: center;
+    padding-inline: 13px;
+    border-radius: 999px;
+    background: rgb(18 17 15 / 42%);
+    backdrop-filter: blur(8px);
+    transition: background-color 300ms ease, padding 300ms ease;
+  }
+
+  .pdp-topbar__brand img {
+    width: 54px;
+    height: auto;
+    filter: invert(1);
+    transition: filter 300ms ease;
+  }
+
+  .pdp-topbar.is-solid .pdp-topbar__brand {
+    padding-inline: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .pdp-topbar.is-solid .pdp-topbar__brand img {
+    filter: none;
+  }
+
+  /* Keep the gallery's badge clear of the floating chips. */
+  .pdp-mgallery__stage .pdp-gallery__badge {
+    top: 64px;
+    left: 12px;
+  }
+
+  .pdp-topbar__title {
+    min-width: 0;
+    flex: 1;
+    margin: 0;
+    overflow: hidden;
+    padding-inline: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
+
+  .pdp-topbar.is-solid .pdp-topbar__title {
+    opacity: 1;
+  }
+
+  .pdp-topbar__toast {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    padding: 9px 15px;
+    border-radius: 999px;
+    background: rgb(18 17 15 / 88%);
+    color: var(--paper);
+    font-size: 9px;
+    font-weight: 650;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0;
+    pointer-events: none;
+    translate: -50% -6px;
+    transition: opacity 260ms ease, translate 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .pdp-topbar__toast[data-show] {
+    opacity: 1;
+    translate: -50% 0;
+  }
+
+  /* Clear the always-on action bar at the foot of the page. */
+  .pdp .shop-footer {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdp-topbar,
+  .pdp-topbar__chip,
+  .pdp-topbar__title,
+  .pdp-topbar__toast {
+    transition-duration: 0.01ms !important;
+  }
+
+  .pdp-bar__tab svg text,
+  .pdp-topbar__chip svg text {
+    animation: none !important;
+  }
+}
+

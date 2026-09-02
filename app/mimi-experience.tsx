@@ -422,7 +422,10 @@ export default function MimiExperience() {
   }, [menuOpen]);
 
   useEffect(() => {
-    if (!window.matchMedia("(pointer: fine)").matches) return;
+    // Must match the query the tilt's perspective is declared under in globals.css — the
+    // stylesheet only builds the 3D context for a hovering fine pointer, and anywhere else
+    // these listeners would write --tilt-x and --tilt-y that nothing reads.
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-tilt]"));
     const cleanups = cards.map((card) => {
       const move = (event: PointerEvent) => {
