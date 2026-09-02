@@ -9,6 +9,10 @@
   --serif: "Iowan Old Style", "Baskerville", "Times New Roman", serif;
   --sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   --page-progress: 0;
+  /* Height of the fixed bar at the top of every route (.site-header__bar, .shop-header). It never
+     retracts, so anything that pins to the top of the viewport has to clear it — read the token
+     rather than re-guessing the number. */
+  --header-h: 62px;
   /* How much taller the viewport gets once the phone's browser chrome retracts: the toolbar's
      height while it is showing, zero on desktop and once it is away. Pinned sections are sized
      to the *large* viewport so they never resize mid-scroll (see .hero__stage), so anything
@@ -18,6 +22,12 @@
 
 @supports (height: 1lvh) {
   :root { --fold-slack: calc(100lvh - 100dvh); }
+}
+
+/* Both headers shorten together at this width (see the .site-header__bar and .shop-header
+   overrides), so the token moves with them. */
+@media (max-width: 900px) {
+  :root { --header-h: 54px; }
 }
 
 * {
@@ -132,3 +142,45 @@ video {
   transform: translateY(0);
 }
 
+
+/* Readable by a screen reader, invisible on screen. Used where a heading is split into
+   per-letter risers: the split copy is aria-hidden, this carries the real sentence. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Scrubbed line/word mask, shared by the manifesto and the closing sections. The padding +
+   matching negative margin opens room for ascenders, descenders and italic overhang without
+   moving anything in layout — the clip lands outside the glyphs, not through them. */
+.mask {
+  display: inline-block;
+  overflow: hidden;
+  padding: 0.12em 0.06em 0.26em;
+  margin: -0.12em -0.06em -0.26em;
+  vertical-align: bottom;
+}
+
+.mask--line {
+  display: block;
+}
+
+/* Each piece inside a mask — a word, or a single letter — reads a slice of its block's
+   --reveal-p, offset by its own --stagger and stretched over --word-span, so a line arrives
+   piece by piece. transition-delay can't do that job: there is no transition left to delay,
+   only a value being sampled. --rise-y is signed, so a line can drop in from above the mask
+   instead of rising from under it. */
+.mask > span {
+  --word-p: clamp(0, calc((var(--reveal-p, 0) - var(--stagger, 0)) / var(--word-span, 0.6)), 1);
+  display: inline-block;
+  rotate: calc((1 - var(--word-p)) * var(--rise-tilt, 2.6deg));
+  transform-origin: left bottom;
+  translate: calc((1 - var(--word-p)) * var(--rise-x, 0px)) calc((1 - var(--word-p)) * var(--rise-y, 118%));
+  /* Composited like the hero words, so the lift moves a layer instead of repainting the
+     whole heading's glyphs on every frame of the scrub. */
+  will-change: translate, rotate;
+}

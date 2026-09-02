@@ -101,7 +101,7 @@
   place-items: center;
   border: 1px solid rgb(255 255 255 / 55%);
   border-radius: 50%;
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 600;
 }
 
@@ -244,7 +244,7 @@
   display: block;
   margin-bottom: 9px;
   color: rgb(255 255 255 / 57%);
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 650;
   letter-spacing: 0.17em;
   text-transform: uppercase;
@@ -271,7 +271,7 @@
 }
 
 .hero__frame-index span {
-  font-size: 6px;
+  font-size: 7px;
   font-weight: 650;
   letter-spacing: 0.12em;
   line-height: 1.45;
@@ -397,7 +397,7 @@
   border: 1px solid rgb(255 255 255 / 45%);
   border-radius: 50%;
   color: white;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -467,36 +467,8 @@
   line-height: 1.03;
 }
 
-/* Shared line/word mask: the padding + matching negative margin opens room for
-   ascenders and italic overhang without moving anything in layout. */
-.manifesto__mask {
-  display: inline-block;
-  overflow: hidden;
-  padding: 0.12em 0.06em 0.26em;
-  margin: -0.12em -0.06em -0.26em;
-  vertical-align: bottom;
-}
-
-.manifesto__mask--line {
-  display: block;
-}
-
-/* Each word reads a slice of its parent's progress, offset by --stagger, so the
-   line still arrives word by word. transition-delay can't do that job any more:
-   there is no transition left to delay, only a value being sampled.  */
-.manifesto__mask > span {
-  --word-p: clamp(0, calc((var(--reveal-p, 0) - var(--stagger, 0)) / 0.6), 1);
-  display: inline-block;
-  rotate: calc((1 - var(--word-p)) * 2.6deg);
-  transform-origin: left bottom;
-  translate: 0 calc((1 - var(--word-p)) * 118%);
-  /* Composited like the hero words, so the lift moves a layer instead of repainting the
-     whole heading's glyphs on every frame of the scrub. */
-  will-change: translate, rotate;
-}
-
-.manifesto__top p .manifesto__mask:nth-of-type(1) { --stagger: 0.07; }
-.manifesto__top p .manifesto__mask:nth-of-type(2) { --stagger: 0.13; }
+.manifesto__top p .mask:nth-of-type(1) { --stagger: 0.07; }
+.manifesto__top p .mask:nth-of-type(2) { --stagger: 0.13; }
 
 .manifesto__composition {
   position: relative;
@@ -521,9 +493,9 @@
   transform: translate(-50%, 0);
 }
 
-.manifesto__composition h2 .manifesto__mask:nth-of-type(2) { --stagger: 0.06; }
-.manifesto__composition h2 .manifesto__mask:nth-of-type(3) { --stagger: 0.12; }
-.manifesto__composition h2 .manifesto__mask:nth-of-type(4) { --stagger: 0.18; }
+.manifesto__composition h2 .mask:nth-of-type(2) { --stagger: 0.06; }
+.manifesto__composition h2 .mask:nth-of-type(3) { --stagger: 0.12; }
+.manifesto__composition h2 .mask:nth-of-type(4) { --stagger: 0.18; }
 
 .manifesto__composition h2 em {
   padding-left: 0.38em;
@@ -654,6 +626,29 @@
 }
 
 .chapter-stack {
+  /* The deck reads as a deck because each pinned card leaves a strip of the one under it
+     showing at the top. The header is fixed, opaque from the hero onward, and never
+     retracts, so that whole fan has to sit below it — pinned at the old 18px every edge
+     was behind the bar and the stack looked like one card swapping colour.
+     --stack-step is both the offset between pinned cards and the height each one gives
+     up, so the fan opens at the top while every card still ends on the same line. */
+  --stack-step: 12px;
+  --stack-top: calc(var(--header-h) + 12px);
+  --stack-bottom: 18px;
+  /* Past a point, height the card doesn't need stops flattering it: at 1300px tall the
+     copy column strands its chapter number and its link a screen apart and the photograph
+     reads as a poster. The ceiling only lifts on genuinely wide screens, where a flat one
+     would crop the portrait image into a letterbox strip — 35vw holds the visual column
+     near 1.8:1, the same proportion it has on a laptop. */
+  --stack-max: max(900px, 35vw);
+  /* What the viewport offers, what the card takes, and what is left over. The leftover is
+     split top and bottom so a capped deck sits in the middle of the screen instead of
+     hanging off the header with a hole beneath it. On anything up to a ~1010px-tall
+     viewport --stack-fit wins outright and the slack is zero, which is the geometry the
+     stack has always had. */
+  --stack-fit: calc(100svh - var(--stack-top) - var(--stack-bottom));
+  --stack-height: min(var(--stack-fit), var(--stack-max));
+  --stack-slack: calc((var(--stack-fit) - var(--stack-height)) / 2);
   padding: 0 clamp(14px, 2vw, 30px);
 }
 
@@ -668,10 +663,13 @@
   --stack-scale: 1;
   --stack-dim: 0;
   position: sticky;
-  top: 18px;
+  top: calc(var(--stack-top) + var(--stack-slack) + var(--card-index) * var(--stack-step));
   z-index: 1;
   display: grid;
-  min-height: calc(100svh - 36px);
+  /* min-, not max-: the ceiling governs the height the viewport hands out, while a card
+     whose content genuinely needs more (the 620px floor under .chapter-card__visual, on a
+     laptop turned short) is still allowed to have it rather than clipping its own copy. */
+  min-height: calc(var(--stack-height) - var(--card-index) * var(--stack-step));
   grid-template-columns: 0.72fr 1.28fr;
   overflow: hidden;
   border-radius: 28px;
@@ -726,9 +724,11 @@
   transform: translateX(65%);
 }
 
-.chapter-card:nth-child(2) { top: 30px; z-index: 2; }
-.chapter-card:nth-child(3) { top: 42px; z-index: 3; }
-.chapter-card:nth-child(4) { top: 54px; z-index: 4; }
+/* Only the paint order here — the pin offset comes off --card-index above, so the
+   stagger stays in one place. */
+.chapter-card:nth-child(2) { z-index: 2; }
+.chapter-card:nth-child(3) { z-index: 3; }
+.chapter-card:nth-child(4) { z-index: 4; }
 .chapter-card--rouge { background: #d35b4a; }
 .chapter-card--plum { background: #6e334d; color: #f8e9e4; }
 .chapter-card--mineral { background: #a9b3bc; }
@@ -857,8 +857,11 @@
 
 .chapter-card__seal small {
   font-family: var(--sans);
-  font-size: 6px;
+  font-size: 8px;
   letter-spacing: 0.1em;
+  /* The seal's own line-height (0.55) is set for the big M above; inherited, it
+     crushed the date into a 3px strip. */
+  line-height: 1.5;
 }
 
 /* Film reveal */
@@ -995,6 +998,11 @@
 /* Stagger by position in the row, so a late row still animates promptly. */
 .lookbook-card.reveal:nth-child(3n + 2) { transition-delay: 90ms; }
 .lookbook-card.reveal:nth-child(3n + 3) { transition-delay: 180ms; }
+
+/* Seven pieces over three columns leaves the last card alone against two empty
+   cells, which reads as a hole rather than the end of the grid. Centred, the short
+   row is deliberate. */
+.lookbook__grid > :last-child:nth-child(3n + 1) { grid-column: 2; }
 
 /* Marquee */
 
@@ -1256,7 +1264,9 @@
   flex: 0 0 max(8px, calc(4.5vw - 14px));
 }
 
-/* Runway note and footer */
+/* Runway note and footer — the closing movement. Both sections are scrubbed the same way the
+   manifesto is: every value below is a function of a 0→1 progress the scroll loop writes, never
+   a latched class, so the whole finale plays backwards on the way up. */
 
 .runway-note {
   min-height: 920px;
@@ -1267,17 +1277,46 @@
 }
 
 .runway-note__line {
+  position: relative;
   display: flex;
   justify-content: space-between;
   padding-bottom: 18px;
-  border-bottom: 1px solid rgb(255 255 255 / 40%);
   font-size: 9px;
   font-weight: 650;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
+/* The rule draws itself across the panel instead of being there from the start. Absolute, so
+   it stays out of the flex row's item flow while it does. */
+.runway-note__line::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: rgb(255 255 255 / 40%);
+  content: "";
+  scale: var(--reveal-p, 0) 1;
+  transform-origin: left center;
+}
+
+/* The two labels close in on their places from opposite ends as they rise. The extra side
+   padding (cancelled by the margin) is what keeps that horizontal travel inside the mask's clip
+   box — without it the drift would be sliced off at the width of the text itself. */
+.runway-note__line .mask {
+  --rise-tilt: 0deg;
+  padding-inline: 26px;
+  margin-inline: -26px;
+}
+
+.runway-note__line .mask:first-child { --rise-x: -20px; }
+.runway-note__line .mask:last-child { --rise-x: 20px; }
+
 .runway-note h2 {
+  /* Twelve pieces share this heading's progress, so each one gets a shorter slice of it than
+     the default: the last of them still has to finish inside the scrub. */
+  --word-span: 0.5;
   margin: 70px 0 80px;
   font-family: var(--serif);
   font-size: clamp(110px, 15vw, 220px);
@@ -1286,9 +1325,38 @@
   line-height: 0.9;
 }
 
+/* Room for the italic's overhang on the right, taken back in margin so nothing shifts. */
+.runway-note h2 .mask {
+  padding-right: 0.16em;
+  margin-right: -0.16em;
+}
+
 .runway-note h2 em {
+  position: relative;
+  display: inline-block;
   padding-left: 0.72em;
   font-weight: 400;
+}
+
+/* The last word drops in from above the mask while everything before it rises from below — the
+   line closes on itself rather than all travelling the same way. */
+.runway-note h2 em .mask > span {
+  --rise-y: -128%;
+  --rise-tilt: -2deg;
+}
+
+/* Then the rule underneath draws, last of all, as the full stop lands. */
+.runway-note h2 em::after {
+  position: absolute;
+  right: 0;
+  bottom: 0.1em;
+  left: 0.74em;
+  height: 0.028em;
+  background: currentcolor;
+  content: "";
+  opacity: 0.6;
+  scale: clamp(0, calc((var(--reveal-p, 0) - 0.62) / 0.32), 1) 1;
+  transform-origin: left center;
 }
 
 .runway-note__bottom {
@@ -1303,6 +1371,22 @@
   margin: 0;
   font-size: 15px;
   line-height: 1.55;
+}
+
+/* A reading light passing over the sentence: no transform, no mask, just each word's alpha
+   coming up in turn. It repaints a short paragraph of 15px text per scrolled frame, which is a
+   far cheaper paint than it would be at heading size — this treatment stays down here. */
+.wash > span {
+  opacity: calc(0.24 + clamp(0, calc((var(--reveal-p, 0) - var(--stagger, 0)) / 0.2), 1) * 0.76);
+}
+
+/* The button swings up to true as it arrives. rotate/scale are their own properties, so the
+   hover transition on `transform` still runs on top without either one lagging the scrub. */
+.runway-note__bottom .circle-link {
+  --link-p: clamp(0, calc((var(--reveal-p, 0) - 0.4) / 0.4), 1);
+  opacity: var(--link-p);
+  rotate: calc((1 - var(--link-p)) * -40deg);
+  scale: calc(0.7 + var(--link-p) * 0.3);
 }
 
 .circle-link--dark {
@@ -1321,13 +1405,40 @@
   color: #f0ece2;
 }
 
+/* --footer-p is the footer's own entrance, 0 as its top edge touches the fold and 1 as the page
+   bottom arrives, and the three blocks below take a stage of it each. The stages are pinned to
+   where each block actually is on screen, which --footer-p happens to state exactly: a block
+   sitting N px down inside the footer crosses the fold at --footer-p N/height, whatever the
+   viewport. So each stage opens at its block's own crossing and runs most of the way to the page
+   bottom — the entrance plays in the reading zone rather than finishing off the bottom edge,
+   where the earlier, much shorter stages left it unseen. */
+.footer__top { --reveal-p: clamp(0, calc((var(--footer-p, 0) - 0.1) / 0.69), 1); }
+.footer__word { --reveal-p: clamp(0, calc((var(--footer-p, 0) - 0.42) / 0.48), 1); }
+.footer__bottom { --reveal-p: clamp(0, calc((var(--footer-p, 0) - 0.66) / 0.3), 1); }
+
 .footer__top {
+  position: relative;
   display: flex;
   align-items: end;
   justify-content: space-between;
   padding-bottom: 28px;
-  border-bottom: 1px solid rgb(255 255 255 / 22%);
 }
+
+/* Both footer rules draw from the left as their block arrives. Absolute so they stay clear of
+   the flex row and the grid below, neither of which should gain a phantom item. */
+.footer__top::after,
+.footer__bottom::before {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: rgb(255 255 255 / 22%);
+  content: "";
+  scale: var(--reveal-p, 0) 1;
+  transform-origin: left center;
+}
+
+.footer__top::after { bottom: 0; }
 
 .footer__top p {
   margin: 0;
@@ -1338,19 +1449,41 @@
 }
 
 .footer__top a {
+  position: relative;
   display: flex;
   min-width: 235px;
   align-items: center;
   justify-content: space-between;
   padding: 15px 0;
-  border-bottom: 1px solid currentcolor;
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
+/* The link's own rule draws last, after its label has come up behind the mask. */
+.footer__top a::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: currentcolor;
+  content: "";
+  scale: clamp(0, calc((var(--reveal-p, 0) - 0.3) / 0.45), 1) 1;
+  transform-origin: left center;
+}
+
+.footer__top a .arrow {
+  --arrow-p: clamp(0, calc((var(--reveal-p, 0) - 0.55) / 0.35), 1);
+  opacity: var(--arrow-p);
+  translate: calc((1 - var(--arrow-p)) * -14px) 0;
+}
+
 .footer__word {
+  /* Four letters at 24vw sharing one stage: a shorter slice each so the last one still lands
+     inside it. */
+  --word-span: 0.55;
   margin: 85px 0 45px -1.1vw;
   font-family: var(--serif);
   font-size: 24vw;
@@ -1359,13 +1492,30 @@
   white-space: nowrap;
 }
 
+/* Decorative and hit-testable: a press should read as the type reacting, not as a botched
+   attempt to select it. */
+.footer__word {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* The name signs itself letter by letter as the page ends. A 0.63 line-height sits well inside
+   the glyphs, so each mask needs more headroom than the shared default gives it before the clip
+   would cut across the caps — taken back in margin, so the tight setting is untouched. The
+   sides are widened past the -0.115em tracking for the same reason. */
+.footer__word .mask {
+  padding: 0.32em 0.18em 0.28em;
+  margin: -0.32em -0.18em -0.28em;
+}
+
 .footer__bottom {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   gap: 20px;
   align-items: center;
   padding-top: 25px;
-  border-top: 1px solid rgb(255 255 255 / 22%);
   color: rgb(255 255 255 / 58%);
   font-size: 9px;
   font-weight: 600;
@@ -1373,11 +1523,29 @@
   text-transform: uppercase;
 }
 
+/* The fine print is the last thing on the page and has only its own height of scroll left to
+   play in, so its rule and items finish early inside the block's stage rather than at the end of
+   it — a hairline that needs the final pixels of the document to close would read as one that
+   simply stops short. */
+.footer__bottom::before {
+  top: 0;
+  scale: clamp(0, calc(var(--reveal-p, 0) / 0.5), 1) 1;
+}
+
+/* The fine print files in under the rule, one item at a time. */
+.footer__bottom > * {
+  --item-p: clamp(0, calc((var(--reveal-p, 0) - var(--stagger, 0)) / 0.5), 1);
+  opacity: var(--item-p);
+  translate: 0 calc((1 - var(--item-p)) * 15px);
+}
+
+.footer__bottom > :nth-child(2) { --stagger: 0.11; }
+.footer__bottom > :nth-child(3) { --stagger: 0.22; }
+
 .footer__bottom a { justify-self: end; }
 
 @media (max-width: 900px) {
   .site-header__bar {
-    height: 54px;
     grid-template-columns: 1fr auto;
     padding: 6px 20px;
   }
@@ -1386,10 +1554,11 @@
   .desktop-nav { display: none; }
 
   /* A blurred backdrop on a fixed bar re-renders the strip behind it on every scrolled frame,
-     and on a phone that is most of the budget the manifesto has. The plate goes a touch more
-     opaque instead, so the bar still reads as solid over the paper. */
+     and on a phone that is most of the budget the manifesto has. The plate carries the bar on
+     its own instead — and it has to be fully opaque to do that: with no blur to diffuse it,
+     the 12% left by a translucent plate read through as crisp text tangled in the wordmark. */
   .header-solid .site-header__bar {
-    background: rgb(12 11 10 / 88%);
+    background: rgb(12 11 10);
     backdrop-filter: none;
   }
 
@@ -1454,7 +1623,7 @@
 
   .hero__eyebrow {
     margin-bottom: 19px;
-    font-size: 8px;
+    font-size: 9px;
   }
 
   .hero h1 {
@@ -1538,7 +1707,7 @@
 
   .hero__lower p small {
     margin-bottom: 7px;
-    font-size: 6px;
+    font-size: 8px;
   }
 
   .hero__frame-index {
@@ -1551,7 +1720,7 @@
   }
 
   .hero__frame-index span {
-    font-size: 5px;
+    font-size: 7px;
   }
 
   .circle-link {
@@ -1564,7 +1733,7 @@
     bottom: calc(22px + var(--fold-slack));
     left: 20px;
     gap: 14px;
-    font-size: 7px;
+    font-size: 8px;
   }
 
   .hero__meta span:last-child { display: none; }
@@ -1605,7 +1774,10 @@
     height: auto;
     margin-top: 26px;
     column-gap: 18px;
-    row-gap: clamp(30px, 8vw, 56px);
+    /* The image below the heading enters scaled 1.07 and rotated 7deg, so its painted
+       box reaches well above its own cell — the gap has to clear that, not just the
+       layout box. */
+    row-gap: clamp(44px, 9vw, 62px);
   }
 
   .manifesto__composition h2 {
@@ -1661,6 +1833,12 @@
   .collection__heading > p { max-width: 300px; }
 
   .chapter-stack {
+    /* Tighter on all three counts: a narrower edge to fan, and less room to spend on
+       margins. --header-h has already dropped to 54px at this width. --stack-max is left
+       alone: 35vw can't reach 900px here, and no phone's small viewport does either, so
+       the ceiling only ever binds on a big tablet held in portrait. */
+    --stack-step: 10px;
+    --stack-bottom: 12px;
     padding-inline: 9px;
   }
 
@@ -1669,12 +1847,6 @@
   }
 
   .chapter-card {
-    /* Each card pins 10px below the previous one so the card underneath keeps a
-       visible coloured edge at the top of the stack. */
-    top: calc(66px + var(--card-index) * 10px);
-    /* Height shrinks by the same 10px, so every card in the stack still ends at
-       the same point above the bottom edge. */
-    min-height: calc(100svh - 78px - var(--card-index) * 10px);
     grid-template-columns: 1fr;
     grid-template-rows: 33% 67%;
     border-radius: 20px;
@@ -1685,10 +1857,6 @@
   .chapter-card + .chapter-card {
     margin-top: 24svh;
   }
-
-  .chapter-card:nth-child(2),
-  .chapter-card:nth-child(3),
-  .chapter-card:nth-child(4) { top: calc(66px + var(--card-index) * 10px); }
 
   .chapter-card__copy {
     display: grid;
@@ -1719,7 +1887,7 @@
     grid-column: 2;
     grid-row: 1;
     gap: 8px;
-    font-size: 7px;
+    font-size: 9px;
   }
 
   .chapter-card__visual { min-height: 0; }
@@ -1793,6 +1961,9 @@
     row-gap: 34px;
     margin-top: 56px;
   }
+
+  /* Two columns: a short last row is ordinary, so the card stays where it falls. */
+  .lookbook__grid > :last-child:nth-child(3n + 1) { grid-column: auto; }
 
   .lookbook-card {
     width: 100%;
@@ -1873,6 +2044,7 @@
   }
 
   .runway-note h2 em { padding-left: 0.2em; }
+  .runway-note h2 em::after { left: 0.22em; }
 
   .runway-note__bottom {
     justify-content: space-between;
@@ -1892,6 +2064,10 @@
   .footer__top {
     display: block;
   }
+
+  /* Stacked, the link's own rule already spans the full width — keeping this one
+     drew a second hairline 29px under it. */
+  .footer__top::after { display: none; }
 
   .footer__top a {
     min-width: 0;
@@ -1943,5 +2119,6 @@
   [data-scroll-zoom] > img { scale: 1 !important; }
   .reveal { opacity: 1; transform: none; }
   [data-scroll-reveal] { --reveal-p: 1 !important; }
+  .footer { --footer-p: 1 !important; }
 }
 
