@@ -102,7 +102,9 @@ export default function ContactView() {
     let frame = 0;
     const update = () => {
       frame = 0;
-      const viewport = window.innerHeight || 1;
+      // clientHeight rather than innerHeight: it ignores the phone address bar sliding away, so
+      // the drift and push-in do not re-scale in one step halfway down the hero.
+      const viewport = document.documentElement.clientHeight || window.innerHeight || 1;
       const travel = Math.min(window.scrollY, viewport);
       media.style.setProperty("--hero-shift", `${travel * 0.16}px`);
       media.style.setProperty("--hero-scale", String(1.06 + (travel / viewport) * 0.08));

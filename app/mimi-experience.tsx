@@ -106,10 +106,10 @@ export default function MimiExperience() {
       };
     };
     const layers = Array.from(document.querySelectorAll<HTMLElement>("[data-parallax]")).map((element) => ({
-      element, amount: Number(element.dataset.parallax ?? 0), current: 0, target: 0, set: writer(element),
+      element, amount: Number(element.dataset.parallax ?? 0), inStack: element.closest(".chapter-card") !== null, current: 0, target: 0, set: writer(element),
     }));
     const zoomLayers = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-zoom]")).map((element) => ({
-      element, current: 1.025, target: 1.025, set: writer(element),
+      element, inStack: element.closest(".chapter-card") !== null, current: 1.025, target: 1.025, set: writer(element),
     }));
     const stackCards = Array.from(document.querySelectorAll<HTMLElement>("[data-stack-card]")).map((element) => ({
       element, current: 0, target: 0, stickyTop: 0, set: writer(element),
@@ -119,9 +119,13 @@ export default function MimiExperience() {
     }));
     const hero = heroRef.current;
     const film = filmRef.current;
+    const stack = document.querySelector<HTMLElement>(".chapter-stack");
     const setHero = writer(hero);
     const setFilm = writer(film);
-    const setRoot = writer(root);
+    // --page-progress changes every scroll frame and exactly one element reads it. Set on
+    // :root it invalidated the whole document's style on each of those frames, because custom
+    // properties inherit; set on the bar itself the recalc stops at one element.
+    const setProgress = writer(document.querySelector<HTMLElement>(".page-progress"));
     // Each card pins at its own sticky offset (staggered on mobile so the card below keeps a
     // visible edge), so read the resolved value instead of hard-coding the breakpoint here.
     const measureStackTops = () => {
@@ -129,10 +133,18 @@ export default function MimiExperience() {
         card.stickyTop = Number.parseFloat(window.getComputedStyle(card.element).top) || 0;
       });
     };
-    // Viewport metrics are cached on resize rather than read per frame: on a phone the
-    // address bar collapsing fires resize, so the cache stays honest without the per-frame cost.
-    let viewport = window.innerHeight;
+    // Viewport metrics are cached on resize rather than read per frame. clientHeight, not
+    // innerHeight: innerHeight shrinks by the height of the phone's address bar while the bar is
+    // up, so every pin progress derived from it would remap the instant the bar retracts and the
+    // choreography would jump a step. clientHeight is the large viewport the pins are sized to
+    // (100lvh) and holds still through the bar, so the scrub stays continuous.
+    const readViewport = () => document.documentElement.clientHeight || window.innerHeight;
+    let viewport = readViewport();
     let width = window.innerWidth;
+    // scrollHeight only moves when the content does — on resize, or as media finish loading —
+    // and reading it costs a layout flush whenever anything above is dirty. Cached, not polled.
+    let docRange = 1;
+    const measureDoc = () => { docRange = Math.max(1, root.scrollHeight - viewport); };
     let frame = 0;
     let dirty = false;
     const clamp = (value: number) => Math.min(1, Math.max(0, value));
@@ -155,17 +167,22 @@ export default function MimiExperience() {
       const narrow = width <= 900;
       // ---- reads ----
       const scrollY = window.scrollY;
-      const docRange = Math.max(1, root.scrollHeight - viewport);
       const heroRect = hero?.getBoundingClientRect();
       const heroRange = hero ? Math.max(1, hero.offsetHeight - viewport) : 1;
       const filmRect = film?.getBoundingClientRect();
       const filmRange = film ? Math.max(1, film.offsetHeight - viewport) : 1;
+      // Below 900px the stylesheet retires the stack's own drift and push-in — a few pixels of
+      // movement on a pinned card, for eight promoted layers. Easing them back to rest here
+      // instead of measuring them saves twelve rect reads a frame and lets the writer fall
+      // silent once they arrive.
       layers.forEach((layer) => {
+        if (layer.inStack && narrow) { layer.target = 0; return; }
         const rect = layer.element.getBoundingClientRect();
         const offset = (viewport / 2 - (rect.top + rect.height / 2)) / viewport;
         layer.target = Math.min(1, Math.max(-1, offset)) * layer.amount * (mobile ? 0.68 : 1);
       });
       zoomLayers.forEach((layer) => {
+        if (layer.inStack && narrow) { layer.target = 1.025; return; }
         const rect = layer.element.getBoundingClientRect();
         const center = rect.top + rect.height / 2;
         const proximity = clamp(1 - Math.abs(center - viewport / 2) / (viewport * 0.9));
@@ -189,7 +206,7 @@ export default function MimiExperience() {
         card.target = clamp((nextCard.stickyTop + travel - nextTop) / travel);
       });
       // ---- writes ----
-      setRoot("--page-progress", (scrollY / docRange).toFixed(4));
+      setProgress("--page-progress", (scrollY / docRange).toFixed(4));
       root.classList.toggle("header-solid", scrollY > viewport * 1.08);
       let immersive = false;
       if (hero && heroRect) {
@@ -242,24 +259,36 @@ export default function MimiExperience() {
     };
     // The eased layers: writes only, so it can share a frame with measure() without ever
     // forcing a flush. Returns whether anything is still settling toward its target.
-    const render = () => {
+    // A per-frame smoothing rate is only the rate you wrote at 60fps. A phone dropping to 45 or
+    // 30 settles at half that speed for the same constant — the deck visibly trailing the finger,
+    // which reads as lag even on frames that were never dropped. Converting each rate over the
+    // frame's real duration keeps the feel identical at any refresh rate; the clamp stops a long
+    // idle or a backgrounded tab from snapping everything into place at once on the way back.
+    let lastFrame = 0;
+    const render = (now = performance.now()) => {
       const narrow = width <= 900;
+      const step = lastFrame ? Math.min(3, (now - lastFrame) / 16.667) : 1;
+      lastFrame = now;
+      const rate = (perFrame: number) => 1 - Math.pow(1 - perFrame, step);
+      const parallaxRate = rate(0.13);
+      const zoomRate = rate(0.11);
+      const stackRate = rate(0.14);
       let moving = false;
       layers.forEach((layer) => {
         const delta = layer.target - layer.current;
-        layer.current = reducedMotion ? 0 : layer.current + delta * 0.13;
+        layer.current = reducedMotion ? 0 : layer.current + delta * parallaxRate;
         layer.set("--parallax-y", `${layer.current.toFixed(2)}px`);
         if (Math.abs(delta) > 0.08) moving = true;
       });
       zoomLayers.forEach((layer) => {
         const delta = layer.target - layer.current;
-        layer.current = reducedMotion ? 1 : layer.current + delta * 0.11;
+        layer.current = reducedMotion ? 1 : layer.current + delta * zoomRate;
         layer.set("--scroll-scale", layer.current.toFixed(4));
         if (Math.abs(delta) > 0.0005) moving = true;
       });
       stackCards.forEach((card) => {
         const delta = card.target - card.current;
-        card.current = reducedMotion ? 0 : card.current + delta * 0.14;
+        card.current = reducedMotion ? 0 : card.current + delta * stackRate;
         card.set("--stack-scale", (1 - card.current * (narrow ? 0.03 : 0.04)).toFixed(4));
         card.set("--stack-dim", (card.current * 0.12).toFixed(4));
         if (Math.abs(delta) > 0.002) moving = true;
@@ -269,18 +298,22 @@ export default function MimiExperience() {
     };
     // The scroll listener only flags the frame; all work happens in one requestAnimationFrame
     // per frame, so a burst of scroll events never measures the page more than once.
-    const tick = () => {
+    const tick = (now: number) => {
       frame = 0;
       if (dirty) { dirty = false; measure(); }
-      if (render()) frame = requestAnimationFrame(tick);
+      if (render(now)) frame = requestAnimationFrame(tick);
     };
-    const schedule = () => { dirty = true; if (!frame) frame = requestAnimationFrame(tick); };
+    // lastFrame resets only when the loop had gone quiet, so the first frame of a new burst is
+    // one step rather than the whole idle gap.
+    const schedule = () => { dirty = true; if (!frame) { lastFrame = 0; frame = requestAnimationFrame(tick); } };
     const onResize = () => {
-      viewport = window.innerHeight;
+      viewport = readViewport();
       width = window.innerWidth;
+      measureDoc();
       measureStackTops();
       schedule();
     };
+    measureDoc();
     measureStackTops();
     measure();
     if (!reducedMotion) {
@@ -291,9 +324,23 @@ export default function MimiExperience() {
     render();
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", onResize);
+    // The stylesheet hangs the cards' will-change off .is-live. Half a viewport of margin means
+    // the layers exist before the first card starts scaling and are handed back once the deck is
+    // gone, so the rest of the page never carries their memory.
+    const stackLive = new IntersectionObserver(([entry]) => {
+      stack?.classList.toggle("is-live", entry.isIntersecting);
+    }, { rootMargin: "50% 0px" });
+    if (stack) stackLive.observe(stack);
+    // Late-loading media change the document height without firing resize, and docRange is no
+    // longer re-read every frame, so watch for it instead.
+    const growth = new ResizeObserver(() => { measureDoc(); schedule(); });
+    growth.observe(document.body);
     return () => {
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", onResize);
+      stackLive.disconnect();
+      growth.disconnect();
+      stack?.classList.remove("is-live");
       root.classList.remove("header-solid", "header-immersive");
       if (frame) cancelAnimationFrame(frame);
     };

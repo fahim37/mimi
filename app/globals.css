@@ -6,6 +6,15 @@
   --serif: "Iowan Old Style", "Baskerville", "Times New Roman", serif;
   --sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   --page-progress: 0;
+  /* How much taller the viewport gets once the phone's browser chrome retracts: the toolbar's
+     height while it is showing, zero on desktop and once it is away. Pinned sections are sized
+     to the *large* viewport so they never resize mid-scroll (see .hero__stage), so anything
+     anchored to the bottom of one adds this to stay above the fold in both states. */
+  --fold-slack: 0px;
+}
+
+@supports (height: 1lvh) {
+  :root { --fold-slack: calc(100lvh - 100dvh); }
 }
 
 * {
@@ -508,11 +517,14 @@ video {
 .hero__stage {
   position: sticky;
   top: 0;
-  /* svh is the viewport at its *smallest* (browser toolbars showing). A pin sized that way
-     comes up short the moment the toolbar retracts on a phone, and the section background
-     shows through as a black strip under the film — so track the live viewport instead. */
+  /* Sized to the *large* viewport (toolbars retracted), never the live one. dvh follows the
+     phone's address bar as it slides away, so the pin used to grow mid-scroll: a black strip of
+     section background opened under the film, then the film snapped taller and object-fit
+     re-cropped it — the sudden fill-and-zoom. lvh is a constant, so the film is laid out once
+     and never resizes; the only cost is its bottom edge sitting under the bar while the bar is
+     up, which --fold-slack keeps the overlaid captions clear of. */
   height: 100svh;
-  height: 100dvh;
+  height: 100lvh;
   min-height: 620px;
   overflow: hidden;
   isolation: isolate;
@@ -839,7 +851,7 @@ video {
 .hero__meta {
   position: absolute;
   z-index: 4;
-  bottom: 28px;
+  bottom: calc(28px + var(--fold-slack));
   left: clamp(24px, 4.6vw, 72px);
   display: flex;
   gap: 34px;
@@ -862,7 +874,7 @@ video {
   position: absolute;
   z-index: 5;
   right: clamp(24px, 3.2vw, 50px);
-  bottom: 20px;
+  bottom: calc(20px + var(--fold-slack));
   display: flex;
   gap: 6px;
 }
@@ -1157,8 +1169,15 @@ video {
   scale: var(--stack-scale);
   box-shadow: 0 -5px 40px rgb(0 0 0 / 10%);
   transform-origin: center top;
-  will-change: scale;
 }
+
+/* Four full-viewport cards, each with a full-viewport dim overlay, is more compositor
+   memory than a phone has to give — and held from page load it taxes the hero and the
+   film section for a deck that is nowhere near the screen. The observer in
+   mimi-experience.tsx flips .is-live about half a screen early, so the promotion churn
+   never lands mid-animation. */
+.chapter-stack.is-live .chapter-card { will-change: scale; }
+.chapter-stack.is-live .chapter-card::before { will-change: opacity; }
 
 /* The gap between cards lives on the following card's top margin, never on the
    card's own bottom margin: a sticky box's range is its container's content box
@@ -1178,7 +1197,6 @@ video {
   content: "";
   opacity: var(--stack-dim);
   pointer-events: none;
-  will-change: opacity;
 }
 
 .chapter-card::after {
@@ -1256,10 +1274,23 @@ video {
   position: relative;
   min-height: 620px;
   overflow: hidden;
-  perspective: 900px;
-  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
-  transform-style: preserve-3d;
-  transition: transform 250ms ease-out;
+}
+
+/* Only a fine pointer can tilt the card, so only a fine pointer should pay for the 3D
+   rendering context. On touch it bought nothing and cost the most: perspective plus
+   preserve-3d puts every child of the visual — image, detail, seal — on its own render
+   surface, and each one then needs a rounded-corner mask against the clipped card. */
+@media (hover: hover) and (pointer: fine) {
+  .chapter-card__visual {
+    perspective: 900px;
+    transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+    transform-style: preserve-3d;
+    transition: transform 250ms ease-out;
+  }
+
+  .chapter-card__detail {
+    transform: translateZ(30px) rotate(3deg);
+  }
 }
 
 .chapter-card__image {
@@ -1284,7 +1315,7 @@ video {
   overflow: hidden;
   border: 7px solid rgb(255 255 255 / 70%);
   box-shadow: 0 20px 50px rgb(0 0 0 / 22%);
-  transform: translateZ(30px) rotate(3deg);
+  transform: rotate(3deg);
 }
 
 .chapter-card__detail img {
@@ -1336,8 +1367,9 @@ video {
 .film-section__pin {
   position: sticky;
   top: 0;
+  /* Large viewport, for the same reason the hero stage uses it. */
   height: 100svh;
-  height: 100dvh;
+  height: 100lvh;
   min-height: 620px;
   overflow: hidden;
 }
@@ -1368,7 +1400,7 @@ video {
 .film-section__title {
   position: absolute;
   z-index: 3;
-  bottom: clamp(55px, 8vh, 100px);
+  bottom: calc(clamp(55px, 8vh, 100px) + var(--fold-slack));
   left: clamp(25px, 5vw, 78px);
 }
 
@@ -2019,7 +2051,7 @@ video {
   }
 
   .hero__meta {
-    bottom: 22px;
+    bottom: calc(22px + var(--fold-slack));
     left: 20px;
     gap: 14px;
     font-size: 7px;
@@ -2030,7 +2062,7 @@ video {
 
   .video-controls {
     right: 18px;
-    bottom: 14px;
+    bottom: calc(14px + var(--fold-slack));
   }
 
   .video-controls button {
@@ -2182,6 +2214,19 @@ video {
 
   .chapter-card__visual { min-height: 0; }
 
+  /* At this width the stack is single-column and pinned, so the image drift and push-in
+     amount to a few pixels nobody sees — while each one is a full-card compositor layer
+     pinned to the GPU, four cards deep. The scroll loop stops measuring them at this
+     width as well; this is the half that gives the memory back. */
+  .chapter-card .parallax-layer {
+    translate: none;
+    will-change: auto;
+  }
+
+  .chapter-card [data-scroll-zoom] > img {
+    will-change: auto;
+  }
+
   .chapter-card__detail {
     right: 5%;
     bottom: 5%;
@@ -2208,7 +2253,7 @@ video {
   }
 
   .film-section__title {
-    bottom: 72px;
+    bottom: calc(72px + var(--fold-slack));
     left: 22px;
   }
 
@@ -2377,12 +2422,14 @@ video {
   }
 
   .parallax-layer { translate: 0 0 !important; }
-  .hero { height: 100svh; height: 100dvh; }
+  .hero { height: 100svh; height: 100lvh; }
   .hero__copy { opacity: 1; transform: none; }
   .hero__media { clip-path: none; transform: none; }
-  .film-section { height: 100svh; height: 100dvh; }
+  .film-section { height: 100svh; height: 100lvh; }
   .film-section__media { clip-path: inset(5% round 24px); }
   .chapter-card { position: relative; top: auto !important; }
+  .chapter-card,
+  .chapter-card::before { will-change: auto !important; }
   [data-scroll-zoom] > img { scale: 1 !important; }
   .reveal { opacity: 1; transform: none; }
   [data-scroll-reveal] { --reveal-p: 1 !important; }
