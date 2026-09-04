@@ -158,13 +158,17 @@
   color: white;
   mix-blend-mode: difference;
   pointer-events: auto;
-  transition: background-color 300ms ease, color 300ms ease, backdrop-filter 300ms ease;
+  transition: background-color 300ms ease, box-shadow 300ms ease, color 300ms ease,
+    backdrop-filter 300ms ease;
 }
 
+/* Past the hero the bar settles onto a smoked-glass plate — the page reads through it, so
+   the difference blend comes off and the type is simply white on the tint. */
 .header-solid .site-header__bar {
-  background: rgb(12 11 10 / 78%);
+  background: var(--glass);
+  box-shadow: inset 0 -1px 0 var(--glass-line), var(--glass-shadow);
   color: white;
-  backdrop-filter: blur(14px);
+  backdrop-filter: var(--glass-blur);
   mix-blend-mode: normal;
 }
 
@@ -173,6 +177,7 @@
    footage; a soft shadow carries them where the frame runs light. */
 .header-immersive .site-header:not(.menu-is-open) .site-header__bar {
   background: transparent;
+  box-shadow: none;
   color: white;
   backdrop-filter: none;
   mix-blend-mode: normal;
@@ -191,6 +196,7 @@
 
 .site-header.menu-is-open .site-header__bar {
   background: transparent;
+  box-shadow: none;
   color: var(--ink);
   backdrop-filter: none;
   mix-blend-mode: normal;
