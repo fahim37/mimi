@@ -30,14 +30,18 @@
     display: block;
     border-bottom: 1px solid transparent;
     padding-top: env(safe-area-inset-top);
-    transition: background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+    transition: background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease,
+      color 300ms ease, backdrop-filter 300ms ease;
   }
 
+  /* Same smoked glass the desktop bars settle onto, so the chips keep their light
+     treatment instead of flipping to ink halfway up the page. */
   .pdp-topbar.is-solid {
-    border-bottom-color: var(--line);
-    background: rgb(239 237 229 / 95%);
-    box-shadow: 0 8px 24px rgb(31 24 18 / 8%);
-    backdrop-filter: blur(14px);
+    border-bottom-color: var(--glass-line);
+    background: var(--glass);
+    box-shadow: var(--glass-shadow);
+    color: var(--paper);
+    backdrop-filter: var(--glass-blur);
   }
 
   .pdp-topbar__row {
@@ -68,7 +72,7 @@
 
   .pdp-topbar.is-solid .pdp-topbar__chip {
     background: transparent;
-    color: var(--ink);
+    color: inherit;
     backdrop-filter: none;
   }
 
@@ -107,10 +111,6 @@
     padding-inline: 0;
     background: transparent;
     backdrop-filter: none;
-  }
-
-  .pdp-topbar.is-solid .pdp-topbar__brand img {
-    filter: none;
   }
 
   /* Keep the gallery's badge clear of the floating chips. */

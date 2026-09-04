@@ -904,13 +904,18 @@ body.bag-open {
   align-items: center;
   padding: 0 clamp(20px, 3.1vw, 48px);
   border-bottom: 1px solid transparent;
-  transition: background-color 320ms ease, border-color 320ms ease, backdrop-filter 320ms ease;
+  transition: background-color 320ms ease, border-color 320ms ease, box-shadow 320ms ease,
+    backdrop-filter 320ms ease, color 320ms ease;
 }
 
+/* Once it leaves the top of the page the bar becomes a smoked-glass plate: the paper keeps
+   scrolling through it, so the type has to flip to light and the mark to its inverse. */
 .shop-header.is-lifted {
-  border-bottom-color: var(--line);
-  background: rgb(239 237 229 / 86%);
-  backdrop-filter: blur(14px);
+  border-bottom-color: var(--glass-line);
+  background: var(--glass);
+  box-shadow: var(--glass-shadow);
+  color: var(--paper);
+  backdrop-filter: var(--glass-blur);
 }
 
 .shop-header__brand {
@@ -921,6 +926,11 @@ body.bag-open {
 .shop-header__brand img {
   width: 100%;
   height: auto;
+  transition: filter 320ms ease;
+}
+
+.shop-header.is-lifted .shop-header__brand img {
+  filter: invert(1);
 }
 
 .shop-header__nav {

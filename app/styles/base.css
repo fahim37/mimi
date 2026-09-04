@@ -18,6 +18,15 @@
      to the *large* viewport so they never resize mid-scroll (see .hero__stage), so anything
      anchored to the bottom of one adds this to stay above the fold in both states. */
   --fold-slack: 0px;
+  /* Smoked-glass plate shared by every fixed bar (.site-header__bar, .shop-header,
+     .pdp-topbar). Tinted off the ink so it sits in the palette rather than reading as
+     flat #000, and light enough that the page keeps moving underneath it. The blur is
+     what makes the tint legible — anywhere it has to come off, the plate goes opaque
+     instead (see the .header-solid override in landing.css). */
+  --glass: rgb(14 13 11 / 70%);
+  --glass-line: rgb(255 255 255 / 14%);
+  --glass-blur: blur(18px) saturate(135%);
+  --glass-shadow: 0 10px 30px rgb(8 7 6 / 16%);
 }
 
 @supports (height: 1lvh) {
